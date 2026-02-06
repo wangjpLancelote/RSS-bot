@@ -5,6 +5,9 @@ import { discoverFeedUrl } from "../services/discovery";
 import { fetchAndStoreFeed } from "../services/rss";
 
 const router = Router();
+function logError(event: string, meta: Record<string, unknown>) {
+  console.error(`[feeds] ${event}`, meta);
+}
 
 router.get("/", async (req: AuthedRequest, res) => {
   const { data, error } = await serviceClient
@@ -80,6 +83,11 @@ router.post("/", async (req: AuthedRequest, res) => {
       if (error.code === "23505") {
         return res.status(409).json({ error: "该订阅源已存在" });
       }
+      logError("create_feed_db_error", {
+        userId: req.user.id,
+        url: feedUrl,
+        error: error.message
+      });
       return res.status(500).json({ error: error.message });
     }
 
@@ -90,6 +98,11 @@ router.post("/", async (req: AuthedRequest, res) => {
     return res.json({ feed: data });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    logError("create_feed_error", {
+      userId: req.user.id,
+      inputUrl: req.body?.url,
+      error: message
+    });
     return res.status(500).json({ error: message });
   }
 });
@@ -126,7 +139,14 @@ router.patch("/:id", async (req: AuthedRequest, res) => {
     .select("*")
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    logError("update_feed_error", {
+      userId: req.user.id,
+      feedId: req.params.id,
+      error: error.message
+    });
+    return res.status(500).json({ error: error.message });
+  }
   return res.json({ feed: data });
 });
 
@@ -148,11 +168,23 @@ router.delete("/:id", async (req: AuthedRequest, res) => {
     .eq("feed_id", req.params.id);
 
   if (itemsError) {
+    logError("delete_feed_items_error", {
+      userId: req.user.id,
+      feedId: req.params.id,
+      error: itemsError.message
+    });
     return res.status(500).json({ error: itemsError.message });
   }
 
   const { error } = await serviceClient.from("feeds").delete().eq("id", req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    logError("delete_feed_error", {
+      userId: req.user.id,
+      feedId: req.params.id,
+      error: error.message
+    });
+    return res.status(500).json({ error: error.message });
+  }
   return res.json({ ok: true });
 });
 
@@ -162,6 +194,11 @@ router.post("/:id/refresh", async (req: AuthedRequest, res) => {
     return res.json({ ok: true, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    logError("refresh_feed_error", {
+      userId: req.user.id,
+      feedId: req.params.id,
+      error: message
+    });
     return res.status(500).json({ error: message });
   }
 });

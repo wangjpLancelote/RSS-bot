@@ -136,6 +136,7 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
     return { itemsAdded: itemsToInsert.length };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[rss] fetch_and_store_error", { feedId, userId: userId || null, error: message });
     const finished = new Date().toISOString();
     await serviceClient
       .from("feeds")
@@ -176,6 +177,7 @@ export async function fetchAllFeeds({
       .range(offset, offset + currentBatchSize - 1);
 
     if (error) {
+      console.error("[rss] fetch_all_query_error", { offset, currentBatchSize, error: error.message });
       throw new Error(error.message);
     }
 
@@ -188,9 +190,11 @@ export async function fetchAllFeeds({
         const result = await fetchAndStoreFeed(feed.id as string);
         results.push({ feedId: feed.id as string, itemsAdded: result.itemsAdded });
       } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error("[rss] fetch_all_feed_error", { feedId: feed.id, error: message });
         results.push({
           feedId: feed.id as string,
-          error: err instanceof Error ? err.message : "Unknown error"
+          error: message
         });
       }
     }

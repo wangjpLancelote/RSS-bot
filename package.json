@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "db:init:auth": "node scripts/db-init-auth.mjs",
     "dev": "next dev",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
     "dev:server": "tsx watch server/src/index.ts",

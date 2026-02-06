@@ -1,4 +1,4 @@
-\"use client\";
+"use client";
 
 import FeedForm from "@/components/FeedForm";
 import AuthGate from "@/components/AuthGate";

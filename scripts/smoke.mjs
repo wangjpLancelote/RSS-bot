@@ -2,6 +2,9 @@ const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const testFeed = process.env.TEST_FEED_URL;
 const authToken = process.env.TEST_AUTH_TOKEN;
 
+console.log(`[smoke] API base: ${base}`);
+console.log("[smoke] Optional env: TEST_AUTH_TOKEN, TEST_FEED_URL");
+
 function withAuth(headers = {}) {
   if (!authToken) return headers;
   return { ...headers, Authorization: `Bearer ${authToken}` };

@@ -11,6 +11,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
   const [feeds, setFeeds] = useState<Feed[]>(initialFeeds);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getBrowserClient();
@@ -42,24 +43,55 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
 
   const refreshAll = async () => {
     setBusy(true);
-    await authFetch("/refresh", {
-      method: "POST",
-      body: JSON.stringify({})
-    });
-    setBusy(false);
+    setError(null);
+    try {
+      const res = await authFetch("/refresh", {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "刷新全部失败");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "刷新全部失败");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const refreshFeed = async (id: string) => {
     setBusy(true);
-    await authFetch(`/feeds/${id}/refresh`, { method: "POST" });
-    setBusy(false);
+    setError(null);
+    try {
+      const res = await authFetch(`/feeds/${id}/refresh`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "刷新订阅失败");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "刷新订阅失败");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const deleteFeed = async (id: string) => {
     setBusy(true);
-    await authFetch(`/feeds/${id}`, { method: "DELETE" });
-    setBusy(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await authFetch(`/feeds/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "删除订阅失败");
+      }
+      setFeeds((prev) => prev.filter((feed) => feed.id !== id));
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除订阅失败");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -72,6 +104,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
           新增订阅
         </a>
       </div>
+      {error ? <div className="card p-4 text-sm text-red-600">{error}</div> : null}
 
       {feeds.length === 0 ? (
         <div className="card p-6">
