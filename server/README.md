@@ -1,4 +1,4 @@
-# RSS Reader Server (Fly.io)
+# RSS Reader Server
 
 Node.js (Express) 服务端，用于 RSS 订阅管理、抓取与入库。
 
@@ -19,51 +19,10 @@ npm run build:server
 npm run start:server
 ```
 
-## Fly.io 部署
-
-### 1. 准备
-- 安装 `flyctl`
-- `flyctl auth login`
-
-### 2. 初始化（一次性）
-在仓库根目录执行：
-
-```bash
-fly launch --no-deploy --config server/fly.toml
-```
-
-填入你的 App 名称与 Region，然后更新 `server/fly.toml`：
-
-```toml
-app = "YOUR_APP_NAME"
-primary_region = "YOUR_REGION"
-```
-
-### 3. 设置 Secrets
-
-```bash
-fly secrets set \
-  SUPABASE_URL=... \
-  SUPABASE_SERVICE_ROLE_KEY=... \
-  SUPABASE_ANON_KEY=... \
-  CRON_SECRET=... \
-  ALLOWED_ORIGIN=https://<your-frontend-domain>
-```
-
-### 4. 部署
-
-```bash
-fly deploy -c server/fly.toml
-```
-
-### 5. Cron（UTC 00:00）
-已内置 `supercronic`，通过 `server/crontab` 每日 00:00 UTC 调用：
-
-```
-POST http://127.0.0.1:4000/cron/refresh
-```
-
-如果需修改频率，调整 `server/crontab` 即可。
+## RSS 定时拉取（GitHub Actions）
+- 工作流文件：`.github/workflows/rss.yml`
+- 依赖 Secrets：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
+- 默认每 30 分钟触发一次，可在 workflow 中调整
 
 ## 端口与跨域
 - 默认端口：`4000`

@@ -3,6 +3,7 @@
 ## 项目结构
 - `app/` 前端（Next.js）
 - `server/` 后端（Node.js + Express）
+- `rss/` GitHub Actions RSS 拉取脚本
 
 ## 本地开发
 
@@ -12,11 +13,10 @@ npm run dev:server
 npm run dev
 ```
 
+## RSS 自动拉取
+- 工作流：`.github/workflows/rss.yml`
+- Secrets：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
+- 逻辑入口：`rss/fetch.js`
+
 ## 生产部署
-
-### Backend (Fly.io)
-- 参见 `docs/deploy-backend-fly.md`
-- GitHub Actions: `.github/workflows/deploy-backend-fly.yml`
-
-### Frontend
-前端保持现有部署方式，不在本次修改范围内。
+前端与后端部署方式不在本次修改范围内。
