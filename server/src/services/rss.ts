@@ -96,25 +96,20 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
     const xml = await response.text();
     const parsed = await parser.parseString(xml);
     const items = (parsed.items || []).map((item) => toItemRow(feedId, item));
+    const uniqueMap = new Map<string, FeedItemRow>();
 
-    let itemsToInsert = items;
-    const incomingGuids = items.map((item) => item.guid);
-
-    if (incomingGuids.length > 0) {
-      const { data: existing } = await serviceClient
-        .from("feed_items")
-        .select("guid")
-        .eq("feed_id", feedId)
-        .in("guid", incomingGuids);
-
-      const existingSet = new Set((existing || []).map((row) => row.guid));
-      itemsToInsert = items.filter((item) => !existingSet.has(item.guid));
+    for (const item of items) {
+      if (!uniqueMap.has(item.guid)) {
+        uniqueMap.set(item.guid, item);
+      }
     }
+
+    const itemsToInsert = Array.from(uniqueMap.values());
 
     if (itemsToInsert.length > 0) {
       await serviceClient
         .from("feed_items")
-        .upsert(itemsToInsert, { onConflict: "feed_id,guid" });
+        .upsert(itemsToInsert, { onConflict: "feed_id,guid", ignoreDuplicates: true });
     }
 
     const finished = new Date().toISOString();
@@ -154,24 +149,61 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
   }
 }
 
-export async function fetchAllFeeds(limit = 20) {
-  const { data: feeds } = await serviceClient
-    .from("feeds")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(limit);
-
+export async function fetchAllFeeds({
+  batchSize = 100,
+  maxFeeds
+}: {
+  batchSize?: number;
+  maxFeeds?: number;
+} = {}) {
   const results: { feedId: string; itemsAdded?: number; error?: string }[] = [];
+  let offset = 0;
+  let processed = 0;
 
-  for (const feed of feeds || []) {
-    try {
-      const result = await fetchAndStoreFeed(feed.id as string);
-      results.push({ feedId: feed.id as string, itemsAdded: result.itemsAdded });
-    } catch (err) {
-      results.push({
-        feedId: feed.id as string,
-        error: err instanceof Error ? err.message : "Unknown error"
-      });
+  while (true) {
+    const remaining = typeof maxFeeds === "number" ? Math.max(maxFeeds - processed, 0) : null;
+    const currentBatchSize =
+      remaining === null ? batchSize : Math.min(batchSize, remaining);
+
+    if (currentBatchSize === 0) {
+      break;
+    }
+
+    const { data: feeds, error } = await serviceClient
+      .from("feeds")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .range(offset, offset + currentBatchSize - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!feeds || feeds.length === 0) {
+      break;
+    }
+
+    for (const feed of feeds) {
+      try {
+        const result = await fetchAndStoreFeed(feed.id as string);
+        results.push({ feedId: feed.id as string, itemsAdded: result.itemsAdded });
+      } catch (err) {
+        results.push({
+          feedId: feed.id as string,
+          error: err instanceof Error ? err.message : "Unknown error"
+        });
+      }
+    }
+
+    processed += feeds.length;
+    offset += feeds.length;
+
+    if (typeof maxFeeds === "number" && processed >= maxFeeds) {
+      break;
+    }
+
+    if (feeds.length < currentBatchSize) {
+      break;
     }
   }
 

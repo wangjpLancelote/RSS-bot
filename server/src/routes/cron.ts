@@ -14,7 +14,7 @@ router.post("/refresh", async (req, res) => {
 
   try {
     const limit = Number(req.query.limit || 20);
-    const results = await fetchAllFeeds(limit);
+    const results = await fetchAllFeeds({ maxFeeds: limit });
     return res.json({ ok: true, results });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

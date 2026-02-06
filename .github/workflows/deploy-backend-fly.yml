@@ -1,0 +1,27 @@
+name: Deploy Backend (Fly.io)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-backend-fly.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy -c server/fly.toml --remote-only
