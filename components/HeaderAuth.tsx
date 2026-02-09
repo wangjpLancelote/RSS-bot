@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { logoutWithEdge } from "@/lib/supabase/functions";
 import useSession from "@/lib/hooks/useSession";
 
 export default function HeaderAuth() {
@@ -9,8 +10,9 @@ export default function HeaderAuth() {
   const router = useRouter();
 
   const signOut = async () => {
+    await logoutWithEdge();
     const supabase = getBrowserClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     router.refresh();
   };
 

@@ -9,9 +9,10 @@ const parser: Parser = new Parser({
 });
 
 function normalizeGuid(item: Parser.Item): string {
+  const itemId = (item as any).id as string | undefined;
   return (
     item.guid ||
-    item.id ||
+    itemId ||
     item.link ||
     `${item.title || "item"}-${item.isoDate || item.pubDate || Date.now()}`
   );
@@ -37,7 +38,7 @@ function toItemRow(feedId: string, item: Parser.Item): FeedItemRow {
     guid: normalizeGuid(item),
     title: item.title ?? null,
     link: item.link ?? null,
-    author: (item as any).creator ?? item.author ?? null,
+    author: (item as any).creator ?? (item as any).author ?? null,
     content_html: contentEncoded ?? content ?? item.summary ?? null,
     content_text: item.contentSnippet ?? null,
     published_at: item.isoDate ? new Date(item.isoDate).toISOString() : null,

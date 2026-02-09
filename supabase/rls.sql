@@ -4,6 +4,7 @@
 alter table public.feeds enable row level security;
 alter table public.feed_items enable row level security;
 alter table public.fetch_runs enable row level security;
+alter table public.feed_events enable row level security;
 
 create policy "anon_read_feeds" on public.feeds
   for select
@@ -33,6 +34,17 @@ create policy "anon_read_runs" on public.fetch_runs
   using (true);
 
 create policy "anon_write_runs" on public.fetch_runs
+  for all
+  to anon
+  using (true)
+  with check (true);
+
+create policy "anon_read_events" on public.feed_events
+  for select
+  to anon
+  using (true);
+
+create policy "anon_write_events" on public.feed_events
   for all
   to anon
   using (true)

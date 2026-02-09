@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { loginWithEdge } from "@/lib/supabase/functions";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -32,14 +33,7 @@ export default function LoginPage() {
 
         setError("注册成功，请检查邮箱完成验证后登录。");
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (signInError) {
-          throw signInError;
-        }
+        await loginWithEdge(email, password);
 
         router.push("/");
       }

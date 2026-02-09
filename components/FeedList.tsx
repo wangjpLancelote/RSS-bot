@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Feed } from "@/lib/types";
 import { getBrowserClient } from "@/lib/supabase/browser";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 import StatusBadge from "@/components/StatusBadge";
 
 export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
@@ -51,7 +51,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "刷新全部失败");
+        throw new Error(apiErrorMessage(data, "刷新全部失败"));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新全部失败");
@@ -67,7 +67,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
       const res = await authFetch(`/feeds/${id}/refresh`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "刷新订阅失败");
+        throw new Error(apiErrorMessage(data, "刷新订阅失败"));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新订阅失败");
@@ -83,7 +83,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
       const res = await authFetch(`/feeds/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "删除订阅失败");
+        throw new Error(apiErrorMessage(data, "删除订阅失败"));
       }
       setFeeds((prev) => prev.filter((feed) => feed.id !== id));
       router.refresh();

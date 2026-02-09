@@ -3,6 +3,8 @@
 alter table public.feeds enable row level security;
 alter table public.feed_items enable row level security;
 alter table public.fetch_runs enable row level security;
+alter table public.feed_events enable row level security;
+alter table public.users enable row level security;
 
 create policy "user_read_feeds" on public.feeds
   for select
@@ -72,3 +74,30 @@ create policy "user_write_runs" on public.fetch_runs
         and f.user_id = auth.uid()
     )
   );
+
+create policy "user_read_events" on public.feed_events
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "user_write_events" on public.feed_events
+  for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "user_read_profile" on public.users
+  for select
+  to authenticated
+  using (id = auth.uid());
+
+create policy "user_write_profile" on public.users
+  for update
+  to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+create policy "user_insert_profile" on public.users
+  for insert
+  to authenticated
+  with check (id = auth.uid());

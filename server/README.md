@@ -33,6 +33,7 @@ npm run start:server
 
 ## API 入口
 - `GET /health`
+- `GET /health/auth`
 - `GET /feeds` (requires auth)
 - `POST /feeds` (requires auth)
 - `PATCH /feeds/:id` (requires auth)

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import type { AuthedRequest } from "../types";
 import { serviceClient } from "../services/supabase";
 import { discoverFeedUrl } from "../services/discovery";
@@ -9,6 +9,40 @@ function logError(event: string, meta: Record<string, unknown>) {
   console.error(`[feeds] ${event}`, meta);
 }
 
+function isNetworkFailure(message?: string | null) {
+  const m = (message || "").toLowerCase();
+  return m.includes("fetch failed") || m.includes("enotfound") || m.includes("econnrefused") || m.includes("timeout");
+}
+
+function respondSupabaseError(res: Response, message: string, notFoundAs404 = false) {
+  if (isNetworkFailure(message)) {
+    return res.status(503).json({
+      error: "Supabase unavailable",
+      detail: message,
+      code: "SUPABASE_NETWORK_FAILURE"
+    });
+  }
+  if (notFoundAs404) {
+    return res.status(404).json({ error: message, code: "SUPABASE_NOT_FOUND" });
+  }
+  return res.status(500).json({ error: message, code: "SUPABASE_QUERY_FAILED" });
+}
+
+async function logFeedEvent(action: "add" | "remove", feed: { id: string; url?: string | null; title?: string | null }, userId: string) {
+  const { error } = await serviceClient.from("feed_events").insert({
+    feed_id: feed.id,
+    user_id: userId,
+    action,
+    feed_url: feed.url ?? null,
+    feed_title: feed.title ?? null,
+    created_at: new Date().toISOString()
+  });
+
+  if (error) {
+    logError("feed_event_error", { action, feedId: feed.id, userId, error: error.message });
+  }
+}
+
 router.get("/", async (req: AuthedRequest, res) => {
   const { data, error } = await serviceClient
     .from("feeds")
@@ -16,7 +50,7 @@ router.get("/", async (req: AuthedRequest, res) => {
     .eq("user_id", req.user.id)
     .order("created_at", { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return respondSupabaseError(res, error.message);
   return res.json({ feeds: data || [] });
 });
 
@@ -28,7 +62,7 @@ router.get("/:id", async (req: AuthedRequest, res) => {
     .eq("user_id", req.user.id)
     .single();
 
-  if (error) return res.status(404).json({ error: error.message });
+  if (error) return respondSupabaseError(res, error.message, true);
   return res.json({ feed: data });
 });
 
@@ -50,7 +84,7 @@ router.get("/:id/items", async (req: AuthedRequest, res) => {
     .eq("feed_id", req.params.id)
     .order("published_at", { ascending: false, nullsFirst: false });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return respondSupabaseError(res, error.message);
   return res.json({ items: data || [] });
 });
 
@@ -88,12 +122,14 @@ router.post("/", async (req: AuthedRequest, res) => {
         url: feedUrl,
         error: error.message
       });
-      return res.status(500).json({ error: error.message });
+      return respondSupabaseError(res, error.message);
     }
 
     if (autoFetch) {
       await fetchAndStoreFeed(data.id as string, req.user.id);
     }
+
+    await logFeedEvent("add", data, req.user.id);
 
     return res.json({ feed: data });
   } catch (err) {
@@ -103,7 +139,10 @@ router.post("/", async (req: AuthedRequest, res) => {
       inputUrl: req.body?.url,
       error: message
     });
-    return res.status(500).json({ error: message });
+    if (isNetworkFailure(message)) {
+      return res.status(503).json({ error: "Upstream unavailable", detail: message, code: "UPSTREAM_NETWORK_FAILURE" });
+    }
+    return res.status(500).json({ error: message, code: "FEED_CREATE_FAILED" });
   }
 });
 
@@ -145,7 +184,7 @@ router.patch("/:id", async (req: AuthedRequest, res) => {
       feedId: req.params.id,
       error: error.message
     });
-    return res.status(500).json({ error: error.message });
+    return respondSupabaseError(res, error.message);
   }
   return res.json({ feed: data });
 });
@@ -153,7 +192,7 @@ router.patch("/:id", async (req: AuthedRequest, res) => {
 router.delete("/:id", async (req: AuthedRequest, res) => {
   const { data: feed } = await serviceClient
     .from("feeds")
-    .select("id")
+    .select("id,url,title")
     .eq("id", req.params.id)
     .eq("user_id", req.user.id)
     .single();
@@ -161,6 +200,8 @@ router.delete("/:id", async (req: AuthedRequest, res) => {
   if (!feed) {
     return res.status(404).json({ error: "Feed not found" });
   }
+
+  await logFeedEvent("remove", feed, req.user.id);
 
   const { error: itemsError } = await serviceClient
     .from("feed_items")
@@ -173,7 +214,7 @@ router.delete("/:id", async (req: AuthedRequest, res) => {
       feedId: req.params.id,
       error: itemsError.message
     });
-    return res.status(500).json({ error: itemsError.message });
+    return respondSupabaseError(res, itemsError.message);
   }
 
   const { error } = await serviceClient.from("feeds").delete().eq("id", req.params.id);
@@ -183,7 +224,7 @@ router.delete("/:id", async (req: AuthedRequest, res) => {
       feedId: req.params.id,
       error: error.message
     });
-    return res.status(500).json({ error: error.message });
+    return respondSupabaseError(res, error.message);
   }
   return res.json({ ok: true });
 });
@@ -199,7 +240,10 @@ router.post("/:id/refresh", async (req: AuthedRequest, res) => {
       feedId: req.params.id,
       error: message
     });
-    return res.status(500).json({ error: message });
+    if (isNetworkFailure(message)) {
+      return res.status(503).json({ error: "Upstream unavailable", detail: message, code: "UPSTREAM_NETWORK_FAILURE" });
+    }
+    return res.status(500).json({ error: message, code: "FEED_REFRESH_FAILED" });
   }
 });
 

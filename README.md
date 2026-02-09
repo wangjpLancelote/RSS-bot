@@ -8,6 +8,8 @@ Next.js + Express + Supabase 的 RSS 订阅管理与阅读工具（带登录鉴�
 - `supabase/`: 数据库 schema 与 RLS SQL
 - `rss/`: GitHub Actions RSS 拉取脚本
 - `scripts/`: 校验、初始化与 smoke 脚本
+- `supabase/functions/`: Edge Functions（login/logout）
+- `tests/`: 单元测试
 
 ## 从 0 到可用（推荐流程）
 
@@ -41,6 +43,9 @@ npm run db:init:auth
 ```bash
 npm run dev:all
 ```
+默认端口：
+- 前端（Next.js）：`http://localhost:3000`
+- 后端（Express）：`http://localhost:4000`
 
 ### 4) 最小验收
 按顺序执行：
@@ -55,13 +60,13 @@ npm run smoke
 参考文件：`.env.example`
 
 - `SUPABASE_URL`: 必填，后端与 RSS 抓取使用
-- `SUPABASE_SERVICE_ROLE_KEY`: 必填，后端写库权限
-- `SUPABASE_ANON_KEY`: 可选，后端校验 token 的 anon key（可回退到 `NEXT_PUBLIC_SUPABASE_ANON_KEY`）
+- `SUPABASE_SERVICE_ROLE_KEY`: 必填，后端写库权限（必须是 `sb_secret_*`）
+- `SUPABASE_ANON_KEY`: 必填，Edge Functions 使用（必须是 anon/public 或 `sb_publishable_*`，不能是 `sb_secret_*`）
 - `NEXT_PUBLIC_SUPABASE_URL`: 必填，前端 Supabase URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: 必填，前端 anon key
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: 必填，前端 anon/public 或 `sb_publishable_*`（不能是 `sb_secret_*`）
 - `NEXT_PUBLIC_API_BASE_URL`: 必填，前端请求后端 API 地址（本地默认 `http://localhost:4000`）
 - `PORT`: 可选，后端端口（默认 `4000`）
-- `ALLOWED_ORIGIN`: 推荐必填，生产环境不要使用 `*`
+- `ALLOWED_ORIGIN`: 推荐必填，支持逗号分隔多个来源（如 `http://localhost:3000,http://127.0.0.1:3000`），生产环境不要使用 `*`
 - `CRON_SECRET`: 强烈建议填写，用于保护 `/cron/refresh`
 
 ## Smoke 测试参数
@@ -80,6 +85,22 @@ npm run smoke
 - Secrets：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
 - 逻辑入口：`rss/fetch.js`
 - 默认触发：每 30 分钟 + push + 手动触发
+- 默认订阅源：`rss/default-feeds.json`（首次执行自动写入 `feeds` 表）
+
+## Supabase Edge Functions
+- `supabase/functions/login`：登录（email/password）
+- `supabase/functions/logout`：登出（需 Bearer token）
+
+## 单元测试（登录/登出）
+- 测试文件：`tests/auth.test.mjs`
+- 依赖环境变量：
+  - `TEST_USER_EMAIL`（默认：`lorenzo.wang@lifebyte.io`）
+  - `TEST_USER_PASSWORD`（必填）
+
+运行：
+```bash
+TEST_USER_PASSWORD=*** npm test
+```
 
 ## 部署
 - 前端：Cloudflare Pages（静态部署）

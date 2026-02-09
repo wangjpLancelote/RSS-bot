@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://techcrunch.com/feed/",
+    "title": "TechCrunch",
+    "description": "Startup and technology news."
+  },
+  {
+    "url": "https://www.wired.com/feed/rss",
+    "title": "WIRED",
+    "description": "Technology, science, and culture news."
+  },
+  {
+    "url": "https://cointelegraph.com/rss",
+    "title": "Cointelegraph",
+    "description": "Cryptocurrency and blockchain news."
+  },
+  {
+    "url": "https://cryptopotato.com/feed/",
+    "title": "CryptoPotato",
+    "description": "Crypto market updates and guides."
+  },
+  {
+    "url": "https://www.smashingmagazine.com/feed/",
+    "title": "Smashing Magazine",
+    "description": "Web design and development articles."
+  },
+  {
+    "url": "https://gizmodo.com/rss",
+    "title": "Gizmodo",
+    "description": "Technology, science, and gadget news."
+  },
+  {
+    "url": "https://blog.myfitnesspal.com/feed/",
+    "title": "MyFitnessPal Blog",
+    "description": "Nutrition, fitness, and wellness tips."
+  }
+]

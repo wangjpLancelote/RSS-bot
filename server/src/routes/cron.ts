@@ -6,6 +6,11 @@ function logError(event: string, meta: Record<string, unknown>) {
   console.error(`[cron] ${event}`, meta);
 }
 
+function isNetworkFailure(message?: string | null) {
+  const m = (message || "").toLowerCase();
+  return m.includes("fetch failed") || m.includes("enotfound") || m.includes("econnrefused") || m.includes("timeout");
+}
+
 router.post("/refresh", async (req, res) => {
   const secret = process.env.CRON_SECRET;
   if (secret) {
@@ -26,7 +31,10 @@ router.post("/refresh", async (req, res) => {
       limit: req.query.limit,
       error: message
     });
-    return res.status(500).json({ error: message });
+    if (isNetworkFailure(message)) {
+      return res.status(503).json({ error: "Upstream unavailable", detail: message, code: "UPSTREAM_NETWORK_FAILURE" });
+    }
+    return res.status(500).json({ error: message, code: "CRON_REFRESH_FAILED" });
   }
 });
 

@@ -62,10 +62,19 @@ const specs = [
 ];
 
 const missing = [];
+const invalid = [];
+const warnings = [];
 
 for (const spec of specs) {
   if (spec.required && !process.env[spec.key]) {
     missing.push(spec);
+  }
+}
+
+for (const spec of specs) {
+  const value = process.env[spec.key];
+  if (typeof value === "string" && value !== value.trim()) {
+    warnings.push(`${spec.key} has leading/trailing whitespace; it should be trimmed`);
   }
 }
 
@@ -74,6 +83,27 @@ if (!process.env.SUPABASE_ANON_KEY && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     key: "SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY",
     requiredIn: "backend auth",
     purpose: "后端校验用户 token 至少需要一个 anon key。"
+  });
+}
+
+if (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.startsWith("sb_secret_")) {
+  invalid.push({
+    key: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    reason: "must not use sb_secret_* in browser-exposed env"
+  });
+}
+
+if (process.env.SUPABASE_ANON_KEY?.startsWith("sb_secret_")) {
+  invalid.push({
+    key: "SUPABASE_ANON_KEY",
+    reason: "must be anon/public or publishable key, not sb_secret_*"
+  });
+}
+
+if (process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith("sb_publishable_")) {
+  invalid.push({
+    key: "SUPABASE_SERVICE_ROLE_KEY",
+    reason: "must be service role secret key, not sb_publishable_*"
   });
 }
 
@@ -86,12 +116,30 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+if (invalid.length > 0) {
+  console.error("Env check failed. Invalid key types:");
+  for (const item of invalid) {
+    console.error(`- ${item.key}: ${item.reason}`);
+  }
+  process.exit(1);
+}
+
 if (!process.env.CRON_SECRET) {
   console.warn("Warning: CRON_SECRET is empty. /cron/refresh will be callable without secret.");
 }
 
 if (process.env.ALLOWED_ORIGIN === "*") {
   console.warn("Warning: ALLOWED_ORIGIN is '*'. Do not use this in production.");
+}
+
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
+  console.warn(
+    "Warning: NODE_TLS_REJECT_UNAUTHORIZED=0 — TLS cert verification disabled (corporate proxy mode). Do not use in production."
+  );
+}
+
+for (const warning of warnings) {
+  console.warn(`Warning: ${warning}`);
 }
 
 console.log("Env check passed.");

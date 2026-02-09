@@ -44,6 +44,21 @@ create table if not exists public.fetch_runs (
   constraint fetch_runs_status_check check (status in ('ok', 'error'))
 );
 
+create table if not exists public.feed_events (
+  id uuid primary key default uuid_generate_v4(),
+  feed_id uuid references public.feeds(id) on delete set null,
+  user_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  feed_url text,
+  feed_title text,
+  created_at timestamptz not null default now(),
+  constraint feed_events_action_check check (action in ('add', 'remove'))
+);
+
+create index if not exists feed_events_feed_id_idx on public.feed_events(feed_id);
+create index if not exists feed_events_user_id_idx on public.feed_events(user_id);
+create index if not exists feed_events_created_at_idx on public.feed_events(created_at desc);
+
 create or replace function public.set_updated_at() returns trigger as $$
 begin
   new.updated_at = now();

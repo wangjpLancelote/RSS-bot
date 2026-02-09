@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 
 type Props = {
   mode: "create" | "edit";
@@ -35,7 +35,7 @@ export default function FeedForm({ mode, defaultUrl = "", defaultTitle = "", fee
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "请求失败");
+        throw new Error(apiErrorMessage(data, "请求失败"));
       }
 
       router.push("/");

@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import { createClient } from "@supabase/supabase-js";
+import { readFile } from "node:fs/promises";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -151,7 +152,78 @@ async function fetchAndStoreFeed(feedId) {
   }
 }
 
+async function loadDefaultFeeds() {
+  const configUrl = new URL("./default-feeds.json", import.meta.url);
+  const raw = await readFile(configUrl, "utf-8");
+  const feeds = JSON.parse(raw);
+  if (!Array.isArray(feeds)) {
+    throw new Error("default-feeds.json must be an array");
+  }
+  return feeds;
+}
+
+async function ensureDefaultFeeds() {
+  const { data: existing, error } = await supabase.from("feeds").select("id").limit(1);
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (existing && existing.length > 0) {
+    return { inserted: 0, skipped: true };
+  }
+
+  const feeds = await loadDefaultFeeds();
+  if (feeds.length === 0) {
+    return { inserted: 0, skipped: true };
+  }
+
+  const now = new Date().toISOString();
+  const rows = feeds
+    .filter((feed) => typeof feed?.url === "string" && feed.url.trim())
+    .map((feed) => ({
+      url: feed.url.trim(),
+      title: typeof feed.title === "string" ? feed.title.trim() || null : null,
+      site_url: typeof feed.site_url === "string" ? feed.site_url.trim() || null : null,
+      description: typeof feed.description === "string" ? feed.description.trim() || null : null,
+      status: "idle",
+      created_at: now,
+      updated_at: now
+    }));
+
+  if (rows.length === 0) {
+    return { inserted: 0, skipped: true };
+  }
+
+  const { data, error: insertError } = await supabase
+    .from("feeds")
+    .upsert(rows, { onConflict: "url", ignoreDuplicates: true })
+    .select("id,url,title");
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+
+  if (data && data.length > 0) {
+    const events = data.map((feed) => ({
+      feed_id: feed.id,
+      user_id: null,
+      action: "add",
+      feed_url: feed.url ?? null,
+      feed_title: feed.title ?? null,
+      created_at: now
+    }));
+
+    const { error: eventError } = await supabase.from("feed_events").insert(events);
+    if (eventError) {
+      console.error("feed_events insert error", eventError.message);
+    }
+  }
+
+  return { inserted: data?.length || 0, skipped: false };
+}
+
 async function fetchAllFeeds() {
+  await ensureDefaultFeeds();
+
   const batchSize = Number(process.env.RSS_FETCH_BATCH_SIZE || 100);
   const maxFeeds = process.env.RSS_FETCH_LIMIT ? Number(process.env.RSS_FETCH_LIMIT) : undefined;
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import TurndownService from "turndown";
 import ReactMarkdown from "react-markdown";
 import type { FeedItem, Feed } from "@/lib/types";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 
@@ -15,16 +15,24 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
 
   const { session } = useSession();
+  const userId = session?.user?.id;
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) {
+      setItem(null);
+      setFeed(null);
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const res = await authFetch(`/items/${params.id}`);
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || "加载条目失败");
+          throw new Error(apiErrorMessage(data, "加载条目失败"));
         }
         setItem(data.item);
 
@@ -43,7 +51,11 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
     };
 
     load();
-  }, [params.id, session]);
+  }, [params.id, userId]);
+
+  if (!userId) {
+    return <AuthGate><section /></AuthGate>;
+  }
 
   const markdown = useMemo(() => {
     if (!item) return "";

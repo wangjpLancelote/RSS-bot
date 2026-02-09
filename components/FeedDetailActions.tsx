@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 
 export default function FeedDetailActions({ feedId }: { feedId: string }) {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function FeedDetailActions({ feedId }: { feedId: string }) {
       const res = await authFetch(`/feeds/${feedId}/refresh`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "刷新失败");
+        throw new Error(apiErrorMessage(data, "刷新失败"));
       }
       router.refresh();
     } catch (err) {
@@ -33,7 +33,7 @@ export default function FeedDetailActions({ feedId }: { feedId: string }) {
       const res = await authFetch(`/feeds/${feedId}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "删除失败");
+        throw new Error(apiErrorMessage(data, "删除失败"));
       }
       router.push("/");
       router.refresh();

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import FeedDetailActions from "@/components/FeedDetailActions";
 import StatusBadge from "@/components/StatusBadge";
 import type { Feed, FeedItem } from "@/lib/types";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 
@@ -15,23 +15,31 @@ export default function FeedDetailPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
 
   const { session } = useSession();
+  const userId = session?.user?.id;
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) {
+      setFeed(null);
+      setItems([]);
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const feedRes = await authFetch(`/feeds/${params.id}`);
         const feedData = await feedRes.json();
         if (!feedRes.ok) {
-          throw new Error(feedData.error || "加载订阅源失败");
+          throw new Error(apiErrorMessage(feedData, "加载订阅源失败"));
         }
         setFeed(feedData.feed);
 
         const itemsRes = await authFetch(`/feeds/${params.id}/items`);
         const itemsData = await itemsRes.json();
         if (!itemsRes.ok) {
-          throw new Error(itemsData.error || "加载条目失败");
+          throw new Error(apiErrorMessage(itemsData, "加载条目失败"));
         }
         setItems(itemsData.items || []);
       } catch (err) {
@@ -42,7 +50,11 @@ export default function FeedDetailPage({ params }: { params: { id: string } }) {
     };
 
     load();
-  }, [params.id, session]);
+  }, [params.id, userId]);
+
+  if (!userId) {
+    return <AuthGate><section /></AuthGate>;
+  }
 
   if (loading) {
     return <div className="card p-6 text-sm text-gray-600">加载中...</div>;

@@ -1,5 +1,9 @@
 import { getBrowserClient } from "@/lib/supabase/browser";
 
+class ApiNetworkError extends Error {
+  code = "API_NETWORK_UNREACHABLE";
+}
+
 export function apiBase() {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "";
   return base.endsWith("/") ? base.slice(0, -1) : base;
@@ -13,22 +17,80 @@ export function apiUrl(path: string) {
   return `${base}${path}`;
 }
 
+export function apiErrorMessage(
+  data: { error?: string; detail?: string; code?: string } | null | undefined,
+  fallback: string
+) {
+  if (!data) return fallback;
+  if (data.code?.endsWith("NETWORK_FAILURE")) {
+    return "后端访问上游服务网络异常，请稍后重试";
+  }
+  if (data.detail) {
+    return `${data.error || fallback}: ${data.detail}`;
+  }
+  return data.error || fallback;
+}
+
 export async function authFetch(path: string, options: RequestInit = {}) {
   const supabase = getBrowserClient();
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const headers = new Headers(options.headers || {});
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (!token) {
+    throw new Error("会话已失效，请重新登录");
   }
 
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+  const makeRequest = async (accessToken: string) => {
+    const requestHeaders = new Headers(headers);
+    requestHeaders.set("Authorization", `Bearer ${accessToken}`);
+
+    if (options.body && !requestHeaders.has("Content-Type")) {
+      requestHeaders.set("Content-Type", "application/json");
+    }
+
+    const url = apiUrl(path);
+    try {
+      return await fetch(url, {
+        ...options,
+        headers: requestHeaders
+      });
+    } catch (_err) {
+      throw new ApiNetworkError(`后端服务不可达: ${url}`);
+    }
+  };
+
+  let response = await makeRequest(token);
+
+  if (response.status === 401) {
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    const nextToken = refreshData.session?.access_token;
+
+    if (!refreshError && nextToken && nextToken !== token) {
+      response = await makeRequest(nextToken);
+    }
   }
 
-  return fetch(apiUrl(path), {
-    ...options,
-    headers
-  });
+  if (response.status === 401) {
+    response
+      .clone()
+      .json()
+      .then((body) => {
+        console.warn("[authFetch] 401", { path, error: body?.error, detail: body?.detail });
+      })
+      .catch(() => undefined);
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+  }
+
+  if (response.status === 503) {
+    response
+      .clone()
+      .json()
+      .then((body) => {
+        console.warn("[authFetch] 503", { path, error: body?.error, detail: body?.detail, code: body?.code });
+      })
+      .catch(() => undefined);
+  }
+
+  return response;
 }

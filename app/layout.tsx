@@ -25,6 +25,7 @@ export default function RootLayout({
               <nav className="flex items-center gap-3 text-sm">
                 <a className="link" href="/">订阅源</a>
                 <a className="link" href="/feeds/new">新增订阅</a>
+                <a className="link" href="/profile">Profile</a>
                 <HeaderAuth />
               </nav>
             </div>

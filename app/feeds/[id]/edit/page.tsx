@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import FeedForm from "@/components/FeedForm";
 import type { Feed } from "@/lib/types";
-import { authFetch } from "@/lib/api";
+import { apiErrorMessage, authFetch } from "@/lib/api";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 
@@ -13,16 +13,23 @@ export default function EditFeedPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
 
   const { session } = useSession();
+  const userId = session?.user?.id;
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) {
+      setFeed(null);
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const res = await authFetch(`/feeds/${params.id}`);
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || "加载订阅失败");
+          throw new Error(apiErrorMessage(data, "加载订阅失败"));
         }
         setFeed(data.feed);
       } catch (err) {
@@ -32,7 +39,11 @@ export default function EditFeedPage({ params }: { params: { id: string } }) {
       }
     };
     load();
-  }, [params.id, session]);
+  }, [params.id, userId]);
+
+  if (!userId) {
+    return <AuthGate><section /></AuthGate>;
+  }
 
   if (loading) {
     return <div className="card p-6 text-sm text-gray-600">加载中...</div>;
