@@ -215,9 +215,9 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <div className="relative" data-feedlist-menu-root>
+    <div className="isolate flex h-full min-h-0 flex-col gap-6 overflow-hidden">
+      <div className="relative z-40 flex shrink-0 items-center justify-end">
+        <div className="relative z-50" data-feedlist-menu-root>
           <button
             className="btn px-2.5"
             onClick={() => setMenuOpen((v) => !v)}
@@ -232,7 +232,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
           {menuOpen ? (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg"
+              className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg"
             >
               <button
                 role="menuitem"
@@ -306,89 +306,91 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
           ) : null}
         </div>
       </div>
-      {error ? <div className="card p-4 text-sm text-red-600">{error}</div> : null}
+      {error ? <div className="card shrink-0 p-4 text-sm text-red-600">{error}</div> : null}
 
-      {feeds.length === 0 ? (
-        <div className="card p-6">
-          <p className="text-sm text-gray-600">还没有订阅源，先添加一个 RSS 链接吧。</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {sortedFeeds.map((feed) => {
-            const op = busyById[feed.id];
-            const isRemoving = Boolean(removingIds[feed.id]);
-            const isBusy = Boolean(op) || busyAll;
-            const isSelected = manageMode && selectedId === feed.id;
+      <div className="min-h-0 flex-1 overflow-auto pr-1 [scrollbar-gutter:stable]">
+        {feeds.length === 0 ? (
+          <div className="card p-6">
+            <p className="text-sm text-gray-600">还没有订阅源，先添加一个 RSS 链接吧。</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {sortedFeeds.map((feed) => {
+              const op = busyById[feed.id];
+              const isRemoving = Boolean(removingIds[feed.id]);
+              const isBusy = Boolean(op) || busyAll;
+              const isSelected = manageMode && selectedId === feed.id;
 
-            return (
-              <div
-                key={feed.id}
-                className={[
-                  "card p-5 transition-all duration-200 ease-out hover:bg-white hover:shadow-md hover:-translate-y-0.5",
-                  isRemoving ? "opacity-0 scale-[0.98] -translate-y-1" : "opacity-100 scale-100 translate-y-0",
-                  isBusy ? "pointer-events-none opacity-80" : "",
-                  isSelected ? "ring-2 ring-accent/50" : ""
-                ].join(" ")}
-              >
-                {manageMode ? (
-                  <button
-                    type="button"
-                    className="block w-full text-left cursor-pointer"
-                    onClick={() => setSelectedId(feed.id)}
-                    aria-pressed={isSelected}
-                  >
-                    <div className={["flex items-start justify-between gap-3 rounded-lg p-2 -m-2", isSelected ? "bg-blue-50/50" : ""].join(" ")}>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-snug wrap-break-word whitespace-normal">{feed.title || feed.url}</p>
-                        <p className="mt-1 text-xs text-gray-500 break-all whitespace-normal">{feed.url}</p>
+              return (
+                <div
+                  key={feed.id}
+                  className={[
+                    "card p-5 transition-all duration-200 ease-out hover:bg-white hover:shadow-md hover:-translate-y-0.5",
+                    isRemoving ? "opacity-0 scale-[0.98] -translate-y-1" : "opacity-100 scale-100 translate-y-0",
+                    isBusy ? "pointer-events-none opacity-80" : "",
+                    isSelected ? "ring-2 ring-accent/50" : ""
+                  ].join(" ")}
+                >
+                  {manageMode ? (
+                    <button
+                      type="button"
+                      className="block w-full cursor-pointer text-left"
+                      onClick={() => setSelectedId(feed.id)}
+                      aria-pressed={isSelected}
+                    >
+                      <div className={["-m-2 flex items-start justify-between gap-3 rounded-lg p-2", isSelected ? "bg-blue-50/50" : ""].join(" ")}>
+                        <div className="min-w-0 flex-1">
+                          <p className="wrap-break-word whitespace-normal font-semibold leading-snug">{feed.title || feed.url}</p>
+                          <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <StatusBadge status={feed.status} />
+                          <span
+                            className={[
+                              "inline-flex h-5 w-5 items-center justify-center rounded-full border border-black/10 text-xs font-semibold",
+                              isSelected ? "border-transparent bg-accent text-white" : "bg-white text-gray-500"
+                            ].join(" ")}
+                            aria-label={isSelected ? "已选择" : "未选择"}
+                          >
+                            {isSelected ? "✓" : ""}
+                          </span>
+                        </div>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <StatusBadge status={feed.status} />
-                        <span
-                          className={[
-                            "inline-flex h-5 w-5 items-center justify-center rounded-full border border-black/10 text-xs font-semibold",
-                            isSelected ? "bg-accent text-white border-transparent" : "bg-white text-gray-500"
-                          ].join(" ")}
-                          aria-label={isSelected ? "已选择" : "未选择"}
-                        >
-                          {isSelected ? "✓" : ""}
-                        </span>
+                    </button>
+                  ) : (
+                    <Link href={`/feeds/${feed.id}`} className="block">
+                      <div className="flex items-start justify-between gap-3 rounded-lg">
+                        <div className="min-w-0 flex-1">
+                          <p className="wrap-break-word whitespace-normal font-semibold leading-snug hover:underline">
+                            {feed.title || feed.url}
+                          </p>
+                          <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <StatusBadge status={feed.status} />
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ) : (
-                  <Link href={`/feeds/${feed.id}`} className="block">
-                    <div className="flex items-start justify-between gap-3 rounded-lg">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold hover:underline leading-snug wrap-break-word whitespace-normal">
-                          {feed.title || feed.url}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500 break-all whitespace-normal">{feed.url}</p>
-                      </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <StatusBadge status={feed.status} />
-                      </div>
-                    </div>
-                  </Link>
-                )}
+                    </Link>
+                  )}
 
-                <div className="mt-4 space-y-2 text-sm text-gray-700">
-                  <p className="flex items-center gap-2">
-                    <IconRefresh className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-500">最近更新：</span>
-                    <span className="wrap-break-word whitespace-normal">
-                      {feed.last_fetched_at ? new Date(feed.last_fetched_at).toLocaleString() : "-"}
-                    </span>
-                  </p>
-                  {feed.last_error ? (
-                    <p className="text-xs text-red-600 wrap-break-word whitespace-normal">{feed.last_error}</p>
-                  ) : null}
+                  <div className="mt-4 space-y-2 text-sm text-gray-700">
+                    <p className="flex items-center gap-2">
+                      <IconRefresh className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-500">最近更新：</span>
+                      <span className="wrap-break-word whitespace-normal">
+                        {feed.last_fetched_at ? new Date(feed.last_fetched_at).toLocaleString() : "-"}
+                      </span>
+                    </p>
+                    {feed.last_error ? (
+                      <p className="wrap-break-word whitespace-normal text-xs text-red-600">{feed.last_error}</p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

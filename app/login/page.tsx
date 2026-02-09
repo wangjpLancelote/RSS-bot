@@ -45,47 +45,49 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold">{mode === "sign-in" ? "登录" : "注册"}</h2>
-        <p className="mt-1 text-sm text-gray-600">使用邮箱与密码进行认证。</p>
-      </div>
-      <div className="card p-6">
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="text-sm font-medium">邮箱</label>
-            <input
-              className="input mt-2"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">密码</label>
-            <input
-              className="input mt-2"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <div className="flex gap-3">
-            <button className="btn btn-primary" type="submit" disabled={loading}>
-              {loading ? "处理中..." : mode === "sign-in" ? "登录" : "注册"}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
-            >
-              {mode === "sign-in" ? "去注册" : "去登录"}
-            </button>
-          </div>
-        </form>
+    <section className="h-full min-h-0 overflow-auto pr-1">
+      <div className="mx-auto w-full max-w-2xl space-y-6">
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold">{mode === "sign-in" ? "登录" : "注册"}</h2>
+          <p className="mt-1 text-sm text-gray-600">使用邮箱与密码进行认证。</p>
+        </div>
+        <div className="card p-6">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label className="text-sm font-medium">邮箱</label>
+              <input
+                className="input mt-2"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">密码</label>
+              <input
+                className="input mt-2"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </div>
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            <div className="flex gap-3">
+              <button className="btn btn-primary" type="submit" disabled={loading}>
+                {loading ? "处理中..." : mode === "sign-in" ? "登录" : "注册"}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
+              >
+                {mode === "sign-in" ? "去注册" : "去登录"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
   );

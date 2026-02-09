@@ -6,7 +6,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
 
   if (loading) {
-    return <div className="card p-6 text-sm text-gray-600">加载中...</div>;
+    return null;
   }
 
   if (!session) {

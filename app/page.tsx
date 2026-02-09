@@ -43,13 +43,15 @@ export default function HomePage() {
 
   return (
     <AuthGate>
-      {loading ? (
-        <div className="card p-6 text-sm text-gray-600">加载中...</div>
-      ) : error ? (
-        <div className="card p-6 text-sm text-red-600">{error}</div>
-      ) : (
-        <FeedList initialFeeds={feeds} />
-      )}
+      <section className="mx-auto h-full min-h-0 w-full max-w-5xl overflow-hidden">
+        {loading ? (
+          null
+        ) : error ? (
+          <div className="card p-6 text-sm text-red-600">{error}</div>
+        ) : (
+          <FeedList initialFeeds={feeds} />
+        )}
+      </section>
     </AuthGate>
   );
 }

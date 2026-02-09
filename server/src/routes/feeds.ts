@@ -28,6 +28,21 @@ function respondSupabaseError(res: Response, message: string, notFoundAs404 = fa
   return res.status(500).json({ error: message, code: "SUPABASE_QUERY_FAILED" });
 }
 
+function looksLikeDirectFeedUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    const joined = `${parsed.pathname}${parsed.search}`.toLowerCase();
+    return (
+      joined.includes("rss") ||
+      joined.includes("atom") ||
+      joined.includes("feed") ||
+      joined.endsWith(".xml")
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function logFeedEvent(action: "add" | "remove", feed: { id: string; url?: string | null; title?: string | null }, userId: string) {
   const { error } = await serviceClient.from("feed_events").insert({
     feed_id: feed.id,
@@ -100,7 +115,26 @@ router.post("/", async (req: AuthedRequest, res) => {
       return res.status(400).json({ error: "缺少 RSS 链接" });
     }
 
-    const { feedUrl, siteUrl } = await discoverFeedUrl(url);
+    let feedUrl = "";
+    let siteUrl = "";
+    let discoveryWarning: string | null = null;
+
+    try {
+      const discovered = await discoverFeedUrl(url);
+      feedUrl = discovered.feedUrl;
+      siteUrl = discovered.siteUrl;
+    } catch (err) {
+      // Fallback: allow adding known feed-looking URL directly.
+      if (looksLikeDirectFeedUrl(url)) {
+        const parsed = new URL(url);
+        feedUrl = parsed.toString();
+        siteUrl = parsed.origin;
+        const reason = err instanceof Error ? err.message : "Unknown discover error";
+        discoveryWarning = `自动发现失败，已按原始链接添加: ${reason}`;
+      } else {
+        throw err;
+      }
+    }
     const now = new Date().toISOString();
 
     const { data, error } = await serviceClient
@@ -128,13 +162,28 @@ router.post("/", async (req: AuthedRequest, res) => {
       return respondSupabaseError(res, error.message);
     }
 
+    let fetchWarning: string | null = null;
     if (autoFetch) {
-      await fetchAndStoreFeed(data.id as string, req.user.id);
+      try {
+        await fetchAndStoreFeed(data.id as string, req.user.id);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        fetchWarning = `订阅已创建，但首次刷新失败: ${message}`;
+        logError("create_feed_initial_fetch_error", {
+          userId: req.user.id,
+          feedId: data.id,
+          url: feedUrl,
+          error: message
+        });
+      }
     }
 
     await logFeedEvent("add", data, req.user.id);
 
-    return res.json({ feed: data });
+    return res.json({
+      feed: data,
+      warning: fetchWarning || discoveryWarning
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     logError("create_feed_error", {
@@ -238,6 +287,9 @@ router.post("/:id/refresh", async (req: AuthedRequest, res) => {
     return res.json({ ok: true, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    if (message === "Feed not found") {
+      return res.status(404).json({ error: "Feed not found", code: "FEED_NOT_FOUND" });
+    }
     logError("refresh_feed_error", {
       userId: req.user.id,
       feedId: req.params.id,

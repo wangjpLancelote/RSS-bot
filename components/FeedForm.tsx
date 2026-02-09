@@ -38,8 +38,8 @@ export default function FeedForm({ mode, defaultUrl = "", defaultTitle = "", fee
         throw new Error(apiErrorMessage(data, "请求失败"));
       }
 
-      router.push("/");
-      router.refresh();
+      // Home page fetches fresh feeds on mount; avoid extra refresh flash.
+      router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "未知错误");
     } finally {

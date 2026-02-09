@@ -49,13 +49,19 @@ function toItemRow(feedId: string, item: Parser.Item): FeedItemRow {
 export async function fetchAndStoreFeed(feedId: string, userId?: string) {
   let feedQuery = serviceClient.from("feeds").select("*").eq("id", feedId);
   if (userId) {
-    feedQuery = feedQuery.eq("user_id", userId);
+    // Allow both:
+    // 1) current user's feeds
+    // 2) legacy/default feeds created before auth mode (user_id is null)
+    feedQuery = feedQuery.or(`user_id.eq.${userId},user_id.is.null`);
   }
 
-  const { data: feed, error } = await feedQuery.single();
+  const { data: feed, error } = await feedQuery.maybeSingle();
 
-  if (error || !feed) {
-    throw new Error(error?.message || "Feed not found");
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!feed) {
+    throw new Error("Feed not found");
   }
 
   const now = new Date().toISOString();

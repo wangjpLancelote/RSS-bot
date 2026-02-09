@@ -23,11 +23,11 @@ export default function GlobalLoadingBar() {
   }, []);
 
   return (
-    <div className={`global-loading ${active ? "global-loading--active" : ""}`} aria-label={ariaLabel}>
-      <div className="global-loading__track">
-        <div className="global-loading__bar" />
+    <div className={`global-loading ${active ? "global-loading--active" : ""}`} aria-label={ariaLabel} aria-live="polite">
+      <div className="global-loading__backdrop" />
+      <div className="global-loading__center">
+        <div className="global-loading__spinner" />
       </div>
     </div>
   );
 }
-

@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import HeaderAuth from "@/components/HeaderAuth";
 import GlobalLoadingBar from "@/components/GlobalLoadingBar";
+import HeaderZenToggle from "@/components/HeaderZenToggle";
 
 export const metadata: Metadata = {
   title: "RSS Reader MVP",
@@ -19,7 +20,7 @@ export default function RootLayout({
       <body>
         <GlobalLoadingBar />
         <div className="page">
-          <header className="border-b border-black/10 bg-white/70">
+          <header className="shrink-0 border-b border-black/10 bg-white/70">
             <div className="container-app flex items-center justify-between py-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gray-500">RSS Reader</p>
@@ -29,11 +30,12 @@ export default function RootLayout({
                 <Link className="link" href="/">订阅源</Link>
                 <Link className="link" href="/feeds/new">新增订阅</Link>
                 <Link className="link" href="/profile">Profile</Link>
+                <HeaderZenToggle />
                 <HeaderAuth />
               </nav>
             </div>
           </header>
-          <main className="container-app py-10">{children}</main>
+          <main className="container-app flex-1 min-h-0 overflow-hidden py-6 md:py-8">{children}</main>
         </div>
       </body>
     </html>

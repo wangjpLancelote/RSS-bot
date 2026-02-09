@@ -48,28 +48,30 @@ export default function ProfilePage() {
 
   return (
     <AuthGate>
-      <section className="space-y-6">
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold">个人资料</h2>
-          <p className="mt-1 text-sm text-gray-600">查看当前登录信息</p>
-        </div>
-        <div className="card p-6 space-y-2">
-          {loading ? (
-            <p className="text-sm text-gray-600">加载中...</p>
-          ) : error ? (
-            <p className="text-sm text-red-600">{error}</p>
-          ) : (
-            <>
-              <div>
-                <p className="text-xs text-gray-500">邮箱</p>
-                <p className="text-sm font-medium">{email ?? "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">用户 ID</p>
-                <p className="text-sm font-mono break-all">{session?.user?.id}</p>
-              </div>
-            </>
-          )}
+      <section className="h-full min-h-0 overflow-auto pr-1">
+        <div className="space-y-6">
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold">个人资料</h2>
+            <p className="mt-1 text-sm text-gray-600">查看当前登录信息</p>
+          </div>
+          <div className="card space-y-2 p-6">
+            {loading ? (
+              <p className="text-sm text-gray-600">加载中...</p>
+            ) : error ? (
+              <p className="text-sm text-red-600">{error}</p>
+            ) : (
+              <>
+                <div>
+                  <p className="text-xs text-gray-500">邮箱</p>
+                  <p className="text-sm font-medium">{email ?? "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">用户 ID</p>
+                  <p className="text-sm font-mono break-all">{session?.user?.id}</p>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </section>
     </AuthGate>
