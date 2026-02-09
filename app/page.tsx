@@ -43,21 +43,13 @@ export default function HomePage() {
 
   return (
     <AuthGate>
-      <section className="space-y-6">
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold">订阅源</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            管理 RSS 订阅，查看更新状态，并在任意时间手动刷新。
-          </p>
-        </div>
-        {loading ? (
-          <div className="card p-6 text-sm text-gray-600">加载中...</div>
-        ) : error ? (
-          <div className="card p-6 text-sm text-red-600">{error}</div>
-        ) : (
-          <FeedList initialFeeds={feeds} />
-        )}
-      </section>
+      {loading ? (
+        <div className="card p-6 text-sm text-gray-600">加载中...</div>
+      ) : error ? (
+        <div className="card p-6 text-sm text-red-600">{error}</div>
+      ) : (
+        <FeedList initialFeeds={feeds} />
+      )}
     </AuthGate>
   );
 }

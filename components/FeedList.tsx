@@ -1,18 +1,99 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { Feed } from "@/lib/types";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { apiErrorMessage, authFetch } from "@/lib/api";
 import StatusBadge from "@/components/StatusBadge";
 
+function IconRefresh({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
+function IconMore({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 12h.01" />
+      <path d="M19 12h.01" />
+      <path d="M5 12h.01" />
+    </svg>
+  );
+}
+
+function IconPencil({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
+function IconTrash({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
 export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
   const [feeds, setFeeds] = useState<Feed[]>(initialFeeds);
+  const router = useRouter();
   const [busyAll, setBusyAll] = useState(false);
-  const [busyById, setBusyById] = useState<Record<string, "refresh" | "delete" | undefined>>({});
+  const [busyById, setBusyById] = useState<Record<string, "delete" | undefined>>({});
   const [removingIds, setRemovingIds] = useState<Record<string, true | undefined>>({});
   const [error, setError] = useState<string | null>(null);
+  const [manageMode, setManageMode] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const supabase = getBrowserClient();
@@ -42,6 +123,19 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      // Close if user clicked outside the menu container
+      if (target.closest("[data-feedlist-menu-root]")) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
   const sortedFeeds = useMemo(() => {
     // Keep stable-ish ordering, newest first if created_at exists.
     return [...feeds].sort((a, b) => {
@@ -67,26 +161,6 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
       setError(err instanceof Error ? err.message : "刷新全部失败");
     } finally {
       setBusyAll(false);
-    }
-  };
-
-  const refreshFeed = async (id: string) => {
-    setBusyById((prev) => ({ ...prev, [id]: "refresh" }));
-    setError(null);
-    try {
-      const res = await authFetch(`/feeds/${id}/refresh`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(apiErrorMessage(data, "刷新订阅失败"));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "刷新订阅失败");
-    } finally {
-      setBusyById((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
     }
   };
 
@@ -125,15 +199,112 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
     }
   };
 
+  const selectedFeed = useMemo(() => {
+    if (!selectedId) return null;
+    return feeds.find((f) => f.id === selectedId) || null;
+  }, [feeds, selectedId]);
+
+  const toggleManageMode = () => {
+    setManageMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setSelectedId(null);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <button className="btn btn-primary shadow-sm ring-1 ring-blue-200/60" onClick={refreshAll} disabled={busyAll}>
-          {busyAll ? "刷新中..." : "刷新全部"}
-        </button>
-        <Link className="btn" href="/feeds/new">
-          新增订阅
-        </Link>
+      <div className="flex items-center justify-end">
+        <div className="relative" data-feedlist-menu-root>
+          <button
+            className="btn px-2.5"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="操作菜单"
+            disabled={busyAll}
+          >
+            <IconMore className="h-4 w-4" />
+          </button>
+
+          {menuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg"
+            >
+              <button
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 disabled:opacity-60"
+                onClick={async () => {
+                  setMenuOpen(false);
+                  await refreshAll();
+                }}
+                disabled={busyAll}
+              >
+                <IconRefresh className={["h-4 w-4", busyAll ? "animate-spin" : ""].join(" ")} />
+                刷新全部
+              </button>
+
+              <Link
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5"
+                href="/feeds/new"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center text-gray-400">＋</span>
+                新增订阅
+              </Link>
+
+              <div className="h-px bg-black/10" />
+
+              <button
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5"
+                onClick={() => {
+                  toggleManageMode();
+                  setMenuOpen(false);
+                }}
+                aria-pressed={manageMode}
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center text-gray-400">{manageMode ? "✓" : " "}</span>
+                {manageMode ? "完成操作" : "打开操作"}
+              </button>
+
+              {manageMode ? (
+                <>
+                  <button
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 disabled:opacity-60"
+                    disabled={!selectedFeed}
+                    onClick={() => {
+                      if (!selectedFeed) return;
+                      setMenuOpen(false);
+                      router.push(`/feeds/${selectedFeed.id}/edit`);
+                    }}
+                  >
+                    <IconPencil className="h-4 w-4" />
+                    编辑选中
+                  </button>
+                  <button
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    disabled={!selectedFeed || Boolean(selectedFeed && busyById[selectedFeed.id])}
+                    onClick={async () => {
+                      if (!selectedFeed) return;
+                      setMenuOpen(false);
+                      await deleteFeed(selectedFeed.id);
+                    }}
+                  >
+                    <IconTrash className="h-4 w-4" />
+                    {selectedFeed && busyById[selectedFeed.id] === "delete" ? "删除中..." : "删除选中"}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
       {error ? <div className="card p-4 text-sm text-red-600">{error}</div> : null}
 
@@ -142,53 +313,76 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
           <p className="text-sm text-gray-600">还没有订阅源，先添加一个 RSS 链接吧。</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {sortedFeeds.map((feed) => {
             const op = busyById[feed.id];
             const isRemoving = Boolean(removingIds[feed.id]);
             const isBusy = Boolean(op) || busyAll;
+            const isSelected = manageMode && selectedId === feed.id;
 
             return (
               <div
                 key={feed.id}
                 className={[
-                  "card p-5 transition-all duration-200 ease-out",
+                  "card p-5 transition-all duration-200 ease-out hover:bg-white hover:shadow-md hover:-translate-y-0.5",
                   isRemoving ? "opacity-0 scale-[0.98] -translate-y-1" : "opacity-100 scale-100 translate-y-0",
-                  isBusy ? "pointer-events-none opacity-80" : ""
+                  isBusy ? "pointer-events-none opacity-80" : "",
+                  isSelected ? "ring-2 ring-accent/50" : ""
                 ].join(" ")}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link className="block font-semibold hover:underline" href={`/feeds/${feed.id}`}>
-                      <span className="truncate">{feed.title || feed.url}</span>
-                    </Link>
-                    <p className="mt-1 truncate text-xs text-gray-500">{feed.url}</p>
-                  </div>
-                  <StatusBadge status={feed.status} />
-                </div>
+                {manageMode ? (
+                  <button
+                    type="button"
+                    className="block w-full text-left cursor-pointer"
+                    onClick={() => setSelectedId(feed.id)}
+                    aria-pressed={isSelected}
+                  >
+                    <div className={["flex items-start justify-between gap-3 rounded-lg p-2 -m-2", isSelected ? "bg-blue-50/50" : ""].join(" ")}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold leading-snug wrap-break-word whitespace-normal">{feed.title || feed.url}</p>
+                        <p className="mt-1 text-xs text-gray-500 break-all whitespace-normal">{feed.url}</p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <StatusBadge status={feed.status} />
+                        <span
+                          className={[
+                            "inline-flex h-5 w-5 items-center justify-center rounded-full border border-black/10 text-xs font-semibold",
+                            isSelected ? "bg-accent text-white border-transparent" : "bg-white text-gray-500"
+                          ].join(" ")}
+                          aria-label={isSelected ? "已选择" : "未选择"}
+                        >
+                          {isSelected ? "✓" : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ) : (
+                  <Link href={`/feeds/${feed.id}`} className="block">
+                    <div className="flex items-start justify-between gap-3 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold hover:underline leading-snug wrap-break-word whitespace-normal">
+                          {feed.title || feed.url}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500 break-all whitespace-normal">{feed.url}</p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <StatusBadge status={feed.status} />
+                      </div>
+                    </div>
+                  </Link>
+                )}
 
                 <div className="mt-4 space-y-2 text-sm text-gray-700">
-                  <p>
+                  <p className="flex items-center gap-2">
+                    <IconRefresh className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-500">最近更新：</span>
-                    {feed.last_fetched_at ? new Date(feed.last_fetched_at).toLocaleString() : "-"}
+                    <span className="wrap-break-word whitespace-normal">
+                      {feed.last_fetched_at ? new Date(feed.last_fetched_at).toLocaleString() : "-"}
+                    </span>
                   </p>
-                  {feed.last_error ? <p className="text-xs text-red-600 line-clamp-2">{feed.last_error}</p> : null}
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="btn btn-primary shadow-sm ring-1 ring-blue-200/60"
-                    onClick={() => refreshFeed(feed.id)}
-                    disabled={isBusy}
-                  >
-                    {op === "refresh" ? "刷新中..." : "手动刷新"}
-                  </button>
-                  <Link className="btn" href={`/feeds/${feed.id}/edit`}>
-                    编辑
-                  </Link>
-                  <button className="btn btn-danger" onClick={() => deleteFeed(feed.id)} disabled={isBusy}>
-                    {op === "delete" ? "删除中..." : "删除"}
-                  </button>
+                  {feed.last_error ? (
+                    <p className="text-xs text-red-600 wrap-break-word whitespace-normal">{feed.last_error}</p>
+                  ) : null}
                 </div>
               </div>
             );

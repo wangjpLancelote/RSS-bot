@@ -47,7 +47,10 @@ router.get("/", async (req: AuthedRequest, res) => {
   const { data, error } = await serviceClient
     .from("feeds")
     .select("*")
-    .eq("user_id", req.user.id)
+    // Return both:
+    // 1) feeds owned by the current user
+    // 2) legacy/default feeds inserted before auth mode (user_id is null)
+    .or(`user_id.eq.${req.user.id},user_id.is.null`)
     .order("created_at", { ascending: false });
 
   if (error) return respondSupabaseError(res, error.message);
@@ -59,7 +62,7 @@ router.get("/:id", async (req: AuthedRequest, res) => {
     .from("feeds")
     .select("*")
     .eq("id", req.params.id)
-    .eq("user_id", req.user.id)
+    .or(`user_id.eq.${req.user.id},user_id.is.null`)
     .single();
 
   if (error) return respondSupabaseError(res, error.message, true);
@@ -71,7 +74,7 @@ router.get("/:id/items", async (req: AuthedRequest, res) => {
     .from("feeds")
     .select("id")
     .eq("id", req.params.id)
-    .eq("user_id", req.user.id)
+    .or(`user_id.eq.${req.user.id},user_id.is.null`)
     .single();
 
   if (!feed) {
