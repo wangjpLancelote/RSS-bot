@@ -32,65 +32,76 @@ export function apiErrorMessage(
 }
 
 export async function authFetch(path: string, options: RequestInit = {}) {
+  const isBrowser = typeof window !== "undefined";
+  if (isBrowser) {
+    window.dispatchEvent(new CustomEvent("app:loading", { detail: { delta: 1 } }));
+  }
+
   const supabase = getBrowserClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const headers = new Headers(options.headers || {});
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const headers = new Headers(options.headers || {});
 
-  if (!token) {
-    throw new Error("会话已失效，请重新登录");
-  }
-
-  const makeRequest = async (accessToken: string) => {
-    const requestHeaders = new Headers(headers);
-    requestHeaders.set("Authorization", `Bearer ${accessToken}`);
-
-    if (options.body && !requestHeaders.has("Content-Type")) {
-      requestHeaders.set("Content-Type", "application/json");
+    if (!token) {
+      throw new Error("会话已失效，请重新登录");
     }
 
-    const url = apiUrl(path);
-    try {
-      return await fetch(url, {
-        ...options,
-        headers: requestHeaders
-      });
-    } catch (_err) {
-      throw new ApiNetworkError(`后端服务不可达: ${url}`);
+    const makeRequest = async (accessToken: string) => {
+      const requestHeaders = new Headers(headers);
+      requestHeaders.set("Authorization", `Bearer ${accessToken}`);
+
+      if (options.body && !requestHeaders.has("Content-Type")) {
+        requestHeaders.set("Content-Type", "application/json");
+      }
+
+      const url = apiUrl(path);
+      try {
+        return await fetch(url, {
+          ...options,
+          headers: requestHeaders
+        });
+      } catch {
+        throw new ApiNetworkError(`后端服务不可达: ${url}`);
+      }
+    };
+
+    let response = await makeRequest(token);
+
+    if (response.status === 401) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const nextToken = refreshData.session?.access_token;
+
+      if (!refreshError && nextToken && nextToken !== token) {
+        response = await makeRequest(nextToken);
+      }
     }
-  };
 
-  let response = await makeRequest(token);
+    if (response.status === 401) {
+      response
+        .clone()
+        .json()
+        .then((body) => {
+          console.warn("[authFetch] 401", { path, error: body?.error, detail: body?.detail });
+        })
+        .catch(() => undefined);
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    }
 
-  if (response.status === 401) {
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    const nextToken = refreshData.session?.access_token;
+    if (response.status === 503) {
+      response
+        .clone()
+        .json()
+        .then((body) => {
+          console.warn("[authFetch] 503", { path, error: body?.error, detail: body?.detail, code: body?.code });
+        })
+        .catch(() => undefined);
+    }
 
-    if (!refreshError && nextToken && nextToken !== token) {
-      response = await makeRequest(nextToken);
+    return response;
+  } finally {
+    if (isBrowser) {
+      window.dispatchEvent(new CustomEvent("app:loading", { detail: { delta: -1 } }));
     }
   }
-
-  if (response.status === 401) {
-    response
-      .clone()
-      .json()
-      .then((body) => {
-        console.warn("[authFetch] 401", { path, error: body?.error, detail: body?.detail });
-      })
-      .catch(() => undefined);
-    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-  }
-
-  if (response.status === 503) {
-    response
-      .clone()
-      .json()
-      .then((body) => {
-        console.warn("[authFetch] 503", { path, error: body?.error, detail: body?.detail, code: body?.code });
-      })
-      .catch(() => undefined);
-  }
-
-  return response;
 }

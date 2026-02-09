@@ -34,6 +34,7 @@ npm run setup
 ```bash
 npm run db:init:auth
 ```
+`npm run db:init:auth` 与 `npm run setup` 共享同一份 SQL 顺序定义（`scripts/supabase-auth-sql-order.mjs`），避免顺序文案漂移。
 
 注意：
 - `supabase/rls.sql` 是匿名模式策略；
@@ -54,6 +55,7 @@ npm run validate
 npm run dev:all
 npm run smoke
 ```
+其中 `npm run validate` 会检查：必填变量、首尾空白、以及 key 类型是否匹配（例如前端变量不得使用 `sb_secret_*`）。
 
 ## 环境变量说明
 
@@ -82,10 +84,21 @@ npm run smoke
 
 ## RSS 自动拉取（GitHub Actions）
 - 工作流：`.github/workflows/rss.yml`
-- Secrets：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
-- 逻辑入口：`rss/fetch.js`
+- Secrets：`CRON_URL`、`CRON_SECRET`（可选：若后端未设置 `CRON_SECRET`，则无需配置）
+- 逻辑入口：后端 `POST /cron/refresh`
 - 默认触发：每 30 分钟 + push + 手动触发
-- 默认订阅源：`rss/default-feeds.json`（首次执行自动写入 `feeds` 表）
+
+## 通过接口导入默认订阅源
+将默认订阅源逐条通过 `POST /feeds` 导入当前登录用户：
+```bash
+npm run import:default:feeds
+```
+
+说明：
+- 优先使用 `IMPORT_AUTH_TOKEN`（或 `TEST_AUTH_TOKEN`）作为 Bearer token。
+- 若未提供 token，脚本会回退使用 `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` + `TEST_USER_EMAIL` + `TEST_USER_PASSWORD` 自动登录获取 token。
+- 默认 API 地址读取 `NEXT_PUBLIC_API_BASE_URL`（未配置则使用 `http://localhost:4000`）。
+- 默认订阅源内置在脚本中；也可通过 `DEFAULT_FEEDS_FILE` 指定自定义 JSON 文件（数组，元素至少包含 `url` 字段）。
 
 ## Supabase Edge Functions
 - `supabase/functions/login`：登录（email/password）

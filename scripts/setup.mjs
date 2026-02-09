@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { printAuthSqlOrder, printAuthSqlPsqlTemplate } from "./supabase-auth-sql-order.mjs";
 
 const root = process.cwd();
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -25,15 +26,11 @@ if (!fs.existsSync(envPath)) {
 }
 
 console.log("\n[setup] Database initialization order (auth mode):");
-console.log("1) supabase/schema.sql");
-console.log("2) supabase/auth_schema.sql");
-console.log("3) supabase/rls-auth.sql");
+printAuthSqlOrder("");
 console.log("Note: supabase/rls.sql is anonymous MVP policy; do not mix with rls-auth.sql.");
 
 console.log("\n[setup] Command template (run manually in your SQL tool):");
-console.log("- psql \"$SUPABASE_DB_URL\" -f supabase/schema.sql");
-console.log("- psql \"$SUPABASE_DB_URL\" -f supabase/auth_schema.sql");
-console.log("- psql \"$SUPABASE_DB_URL\" -f supabase/rls-auth.sql");
+printAuthSqlPsqlTemplate("");
 
 runStep("Validating environment", npmCmd, ["run", "validate"]);
 

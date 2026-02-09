@@ -21,7 +21,8 @@ body {
 }
 
 .container-app {
-  @apply mx-auto max-w-6xl px-6 py-10;
+  /* keep layout consistent across header/main */
+  @apply mx-auto max-w-7xl px-6 md:px-8;
 }
 
 .card {
@@ -78,4 +79,46 @@ body {
 
 .table td {
   @apply rounded-lg bg-white/80 p-3;
+}
+
+/* Global loading bar (driven by authFetch) */
+.global-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.global-loading--active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.global-loading__track {
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.global-loading__bar {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  animation: global-loading-slide 1.05s ease-in-out infinite;
+}
+
+@keyframes global-loading-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
 }

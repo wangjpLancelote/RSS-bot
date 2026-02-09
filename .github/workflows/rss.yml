@@ -1,4 +1,4 @@
-name: RSS Fetch Test
+name: RSS Refresh (Backend Cron)
 
 on:
   schedule:
@@ -15,18 +15,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        working-directory: rss
-        run: npm install
-
-      - name: Run RSS fetcher
-        working-directory: rss
-        run: node fetch.js
+      - name: Trigger backend cron refresh
+        run: |
+          if [ -z "${CRON_URL}" ]; then
+            echo "Missing secret: CRON_URL (example: https://your-backend.example.com/cron/refresh?limit=50)"
+            exit 1
+          fi
+          echo "Calling ${CRON_URL}"
+          curl -sS -X POST "${CRON_URL}" \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            -H "content-type: application/json" \
+            --data "{}"
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

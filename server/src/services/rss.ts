@@ -70,6 +70,7 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
     .insert({ feed_id: feedId, started_at: now, status: "ok", items_added: 0 })
     .select("id")
     .single();
+  const runId = run?.id as string | undefined;
 
   try {
     const headers: Record<string, string> = { ...DEFAULT_HEADERS };
@@ -83,10 +84,12 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
         .from("feeds")
         .update({ status: "ok", last_fetched_at: finished, updated_at: finished })
         .eq("id", feedId);
-      await serviceClient
-        .from("fetch_runs")
-        .update({ finished_at: finished, status: "ok", items_added: 0 })
-        .eq("id", run?.id || "");
+      if (runId) {
+        await serviceClient
+          .from("fetch_runs")
+          .update({ finished_at: finished, status: "ok", items_added: 0 })
+          .eq("id", runId);
+      }
       return { itemsAdded: 0 };
     }
 
@@ -97,15 +100,14 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
     const xml = await response.text();
     const parsed = await parser.parseString(xml);
     const items = (parsed.items || []).map((item) => toItemRow(feedId, item));
-    const uniqueMap = new Map<string, FeedItemRow>();
-
-    for (const item of items) {
-      if (!uniqueMap.has(item.guid)) {
-        uniqueMap.set(item.guid, item);
+    const seenGuids = new Set<string>();
+    const itemsToInsert = items.filter((item) => {
+      if (seenGuids.has(item.guid)) {
+        return false;
       }
-    }
-
-    const itemsToInsert = Array.from(uniqueMap.values());
+      seenGuids.add(item.guid);
+      return true;
+    });
 
     if (itemsToInsert.length > 0) {
       await serviceClient
@@ -129,10 +131,12 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
       })
       .eq("id", feedId);
 
-    await serviceClient
-      .from("fetch_runs")
-      .update({ finished_at: finished, status: "ok", items_added: itemsToInsert.length })
-      .eq("id", run?.id || "");
+    if (runId) {
+      await serviceClient
+        .from("fetch_runs")
+        .update({ finished_at: finished, status: "ok", items_added: itemsToInsert.length })
+        .eq("id", runId);
+    }
 
     return { itemsAdded: itemsToInsert.length };
   } catch (err) {
@@ -143,10 +147,12 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
       .from("feeds")
       .update({ status: "error", last_error: message, updated_at: finished })
       .eq("id", feedId);
-    await serviceClient
-      .from("fetch_runs")
-      .update({ finished_at: finished, status: "error", error: message })
-      .eq("id", run?.id || "");
+    if (runId) {
+      await serviceClient
+        .from("fetch_runs")
+        .update({ finished_at: finished, status: "error", error: message })
+        .eq("id", runId);
+    }
     throw err;
   }
 }
@@ -164,8 +170,7 @@ export async function fetchAllFeeds({
 
   while (true) {
     const remaining = typeof maxFeeds === "number" ? Math.max(maxFeeds - processed, 0) : null;
-    const currentBatchSize =
-      remaining === null ? batchSize : Math.min(batchSize, remaining);
+    const currentBatchSize = remaining === null ? batchSize : Math.min(batchSize, remaining);
 
     if (currentBatchSize === 0) {
       break;
@@ -187,14 +192,15 @@ export async function fetchAllFeeds({
     }
 
     for (const feed of feeds) {
+      const currentFeedId = String(feed.id);
       try {
-        const result = await fetchAndStoreFeed(feed.id as string);
-        results.push({ feedId: feed.id as string, itemsAdded: result.itemsAdded });
+        const result = await fetchAndStoreFeed(currentFeedId);
+        results.push({ feedId: currentFeedId, itemsAdded: result.itemsAdded });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        console.error("[rss] fetch_all_feed_error", { feedId: feed.id, error: message });
+        console.error("[rss] fetch_all_feed_error", { feedId: currentFeedId, error: message });
         results.push({
-          feedId: feed.id as string,
+          feedId: currentFeedId,
           error: message
         });
       }

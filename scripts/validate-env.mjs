@@ -1,6 +1,6 @@
 try {
   await import("dotenv/config");
-} catch (_err) {
+} catch {
   // Dependencies may not be installed yet (e.g. before npm install).
 }
 
@@ -66,13 +66,10 @@ const invalid = [];
 const warnings = [];
 
 for (const spec of specs) {
-  if (spec.required && !process.env[spec.key]) {
+  const value = process.env[spec.key];
+  if (spec.required && !value) {
     missing.push(spec);
   }
-}
-
-for (const spec of specs) {
-  const value = process.env[spec.key];
   if (typeof value === "string" && value !== value.trim()) {
     warnings.push(`${spec.key} has leading/trailing whitespace; it should be trimmed`);
   }

@@ -34,7 +34,8 @@ export default function ProfilePage() {
           throw fetchError;
         }
 
-        setEmail(data?.email ?? session?.user?.email ?? null);
+        const dbEmail = (data as { email?: string } | null)?.email ?? null;
+        setEmail(dbEmail ?? session?.user?.email ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "读取失败");
       } finally {
