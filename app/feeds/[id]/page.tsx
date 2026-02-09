@@ -12,7 +12,7 @@ import { apiErrorMessage, authFetch } from "@/lib/api";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 
-function IconCompact({ className = "" }: { className?: string }) {
+function IconZen({ className = "" }: { className?: string }) {
   return (
     <svg
       className={className}
@@ -24,10 +24,9 @@ function IconCompact({ className = "" }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M4 5h6v14H4z" />
-      <path d="M14 5h6v4h-6z" />
-      <path d="M14 11h6v3h-6z" />
-      <path d="M14 17h6v2h-6z" />
+      <path d="M4 7h16" />
+      <path d="M4 12h12" />
+      <path d="M4 17h8" />
     </svg>
   );
 }
@@ -62,7 +61,6 @@ export default function FeedDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "reader">("list");
-  const [compactList, setCompactList] = useState(false);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -119,10 +117,14 @@ export default function FeedDetailPage() {
   }, [selectedItemId, feedId]);
 
   useEffect(() => {
-    if (!zenMode && compactList) {
-      setCompactList(false);
+    if (typeof document === "undefined") return;
+    if (zenMode) {
+      document.body.classList.add("zen-mode");
+    } else {
+      document.body.classList.remove("zen-mode");
     }
-  }, [compactList, zenMode]);
+    return () => document.body.classList.remove("zen-mode");
+  }, [zenMode]);
 
   useEffect(() => {
     if (!feedId || selectedItemId || items.length === 0) return;
@@ -198,6 +200,17 @@ export default function FeedDetailPage() {
     setMobileView("reader");
   };
 
+  const toggleZenMode = () => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (zenMode) {
+      nextParams.delete("zen");
+    } else {
+      nextParams.set("zen", "1");
+    }
+    const nextQuery = nextParams.toString();
+    router.replace(`/feeds/${feedId}${nextQuery ? `?${nextQuery}` : ""}`, { scroll: false });
+  };
+
   return (
     <AuthGate>
       <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden md:gap-6">
@@ -224,34 +237,14 @@ export default function FeedDetailPage() {
         <div
           className={[
             "grid min-h-0 flex-1 gap-4 overflow-hidden",
-            zenMode
-              ? compactList
-                ? "md:grid-cols-[88px_minmax(0,1fr)]"
-                : "md:grid-cols-[minmax(240px,30%)_minmax(0,1fr)]"
-              : "md:grid-cols-[minmax(320px,38%)_minmax(0,1fr)]"
+            zenMode ? "grid-cols-1" : "md:grid-cols-[minmax(320px,38%)_minmax(0,1fr)]"
           ].join(" ")}
         >
-          <div className={`min-h-0 overflow-hidden ${mobileView === "reader" ? "hidden md:block" : ""}`}>
+          {!zenMode ? (
+            <div className={`min-h-0 overflow-hidden ${mobileView === "reader" ? "hidden md:block" : ""}`}>
             <div className="card flex h-full min-h-0 flex-col p-4 md:p-5">
               <div className="shrink-0 flex items-center justify-between gap-2">
-                <h3 className="text-base font-semibold">{zenMode && compactList ? "缩略" : "最新条目"}</h3>
-                <div className="flex items-center gap-2">
-                  {zenMode ? (
-                    <button
-                      type="button"
-                      className={[
-                        "btn hidden px-2 py-1 md:inline-flex",
-                        compactList ? "border-blue-800 bg-blue-700 text-white hover:bg-blue-800" : ""
-                      ].join(" ")}
-                      onClick={() => setCompactList((v) => !v)}
-                      title={compactList ? "展开列表" : "缩略列表"}
-                      aria-label={compactList ? "展开列表" : "缩略列表"}
-                      aria-pressed={compactList}
-                    >
-                      <IconCompact className="h-4 w-4" />
-                    </button>
-                  ) : null}
-                </div>
+                <h3 className="text-base font-semibold">最新条目</h3>
               </div>
               <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {items.length === 0 ? (
@@ -265,44 +258,32 @@ export default function FeedDetailPage() {
                         type="button"
                         className={[
                           "block w-full rounded-lg border text-left transition-colors",
-                          zenMode && compactList ? "p-2" : "p-4",
+                          "p-4",
                           selected
                             ? "border-accent/40 bg-blue-50/60"
                             : "border-black/5 bg-white/70 hover:bg-white"
                         ].join(" ")}
                         onClick={() => selectItem(item.id)}
                       >
-                        {zenMode && compactList ? (
-                          <div className="space-y-1">
-                            <p className="line-clamp-3 text-xs font-semibold leading-tight break-all">
-                              {compact(item.title || "未命名", 60)}
-                            </p>
-                            <p className="text-[11px] text-gray-500">
-                              {item.published_at ? new Date(item.published_at).toLocaleDateString() : "-"}
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            <h4 className="font-medium break-words">{compact(item.title || "未命名", 140)}</h4>
-                            <p className="mt-1 text-xs text-gray-500">
-                              {item.published_at ? new Date(item.published_at).toLocaleString() : "未提供时间"}
-                            </p>
-                            {item.content_text ? (
-                              <p className="mt-2 break-words text-sm text-gray-600">
-                                {compact(item.content_text, 220)}
-                              </p>
-                            ) : null}
-                          </>
-                        )}
+                        <h4 className="font-medium break-words">{compact(item.title || "未命名", 140)}</h4>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {item.published_at ? new Date(item.published_at).toLocaleString() : "未提供时间"}
+                        </p>
+                        {item.content_text ? (
+                          <p className="mt-2 break-words text-sm text-gray-600">
+                            {compact(item.content_text, 220)}
+                          </p>
+                        ) : null}
                       </button>
                     );
                   })
                 )}
               </div>
             </div>
-          </div>
+            </div>
+          ) : null}
 
-          <div className={`min-h-0 overflow-hidden ${mobileView === "list" ? "hidden md:block" : ""}`}>
+          <div className={`min-h-0 overflow-hidden ${!zenMode && mobileView === "list" ? "hidden md:block" : ""}`}>
             <div className="card flex h-full min-h-0 flex-col overflow-hidden p-4 md:p-6">
               {!selectedItemId ? (
                 <p className="text-sm text-gray-600">请选择一篇条目开始阅读。</p>
@@ -313,6 +294,23 @@ export default function FeedDetailPage() {
                   <div className="shrink-0 space-y-2 border-b border-black/10 pb-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs uppercase tracking-[0.2em] text-gray-500">{feed.title || "订阅"}</p>
+                      <button
+                        type="button"
+                        onClick={toggleZenMode}
+                        className={[
+                          "group relative inline-flex h-8 w-8 items-center justify-center rounded-lg border text-sm shadow-sm transition-colors",
+                          zenMode
+                            ? "border-blue-800 bg-blue-700 text-white hover:bg-blue-800"
+                            : "border-black/10 bg-white text-ink hover:bg-black/5"
+                        ].join(" ")}
+                        aria-label={zenMode ? "退出 Zen 模式" : "进入 Zen 模式"}
+                        title={zenMode ? "退出 Zen 模式" : "进入 Zen 模式"}
+                      >
+                        <IconZen className="h-4 w-4" />
+                        <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          {zenMode ? "退出 Zen" : "进入 Zen"}
+                        </span>
+                      </button>
                     </div>
                     <h3 className="text-xl font-semibold break-words">{selectedItem.title || "未命名"}</h3>
                     <p className="text-xs text-gray-500">

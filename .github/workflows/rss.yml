@@ -1,12 +1,7 @@
 name: RSS Refresh (Backend Cron)
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
-  workflow_dispatch:
-  push:
-    branches:
-      - "**"
+  workflow_call:
 
 jobs:
   fetch:
