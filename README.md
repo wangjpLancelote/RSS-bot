@@ -81,7 +81,9 @@ npm run smoke
 - 逻辑入口：`rss/fetch.js`
 - 默认触发：每 30 分钟 + push + 手动触发
 
-## 安全建议（最小要求）
-- 生产环境设置 `ALLOWED_ORIGIN` 为明确域名，禁止 `*`
-- 配置 `CRON_SECRET`，调用 `/cron/refresh` 时传 `x-cron-secret`
-- `SUPABASE_SERVICE_ROLE_KEY` 仅后端使用，不可放入前端
+## 部署
+- 前端：Cloudflare Pages（静态部署）
+- 后端：Render Web Service（Root Directory = `server/`）
+- 数据库：Supabase
+
+详见 `docs/deploy.md`

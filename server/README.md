@@ -24,6 +24,9 @@ npm run start:server
 - 依赖 Secrets：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
 - 默认每 30 分钟触发一次，可在 workflow 中调整
 
+## 部署
+参考 `docs/deploy.md`
+
 ## 端口与跨域
 - 默认端口：`4000`
 - 允许跨域来源：`ALLOWED_ORIGIN`
