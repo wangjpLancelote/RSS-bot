@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
@@ -118,45 +117,57 @@ export default function ProfilePage() {
   const signOutVariant =
     signOutStatus === "success" ? "btn-success" : signOutStatus === "error" ? "btn-danger" : "btn-auth-logout";
 
+  const avatarLetter = (email?.[0] ?? "U").toUpperCase();
+
   return (
     <AuthGate>
-      <section className="h-full min-h-0 overflow-auto pr-1">
-        <div className="space-y-6">
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold">个人资料</h2>
-            <p className="mt-1 text-sm text-gray-600">查看当前登录信息</p>
+      <section className="profile-page">
+        <div className="profile-container">
+          {/* Profile header */}
+          <div className="profile-header">
+            <div className="profile-avatar">
+              {avatarLetter}
+            </div>
+            <div className="profile-header-info">
+              <h2 className="profile-header-title">个人资料</h2>
+              <p className="profile-header-sub">管理你的账号信息</p>
+            </div>
           </div>
-          <div className="card space-y-2 p-6">
+
+          {/* Account info card */}
+          <div className="profile-card">
+            <h3 className="profile-card-title">账号信息</h3>
             {loading ? (
-              <p className="text-sm text-gray-600">加载中...</p>
+              <div className="profile-field">
+                <span className="profile-field-label">加载中...</span>
+              </div>
             ) : error ? (
-              <p className="text-sm text-red-600">{error}</p>
+              <div className="profile-field">
+                <span className="profile-field-value" style={{ color: "rgba(220,38,38,0.9)" }}>{error}</span>
+              </div>
             ) : (
               <>
-                <div>
-                  <p className="text-xs text-gray-500">邮箱</p>
-                  <p className="text-sm font-medium">{email ?? "-"}</p>
+                <div className="profile-field">
+                  <span className="profile-field-label">邮箱</span>
+                  <span className="profile-field-value">{email ?? "-"}</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">用户 ID</p>
-                  <p className="text-sm font-mono break-all">{session?.user?.id}</p>
+                <div className="profile-field">
+                  <span className="profile-field-label">用户 ID</span>
+                  <span className="profile-field-value profile-field-mono">{session?.user?.id}</span>
                 </div>
               </>
             )}
           </div>
-          <div className="card auth-logout-card space-y-4 p-6">
-            <div className="auth-brand">
-              <span className="auth-brand-icon">
-                <Image src="/icon.svg" alt="RSS-Bot" fill sizes="44px" />
-              </span>
-              <div>
-                <h3 className="text-base font-semibold">安全退出</h3>
-                <p className="mt-1 text-sm text-gray-600">退出当前设备会话，并返回登录页。</p>
-              </div>
-            </div>
-            {signOutError ? <p className="text-sm text-red-600">{signOutError}</p> : null}
+
+          {/* Sign out card */}
+          <div className="profile-card profile-card--danger">
+            <h3 className="profile-card-title">会话管理</h3>
+            <p className="profile-card-desc">退出当前设备的登录会话，并返回登录页面。</p>
+            {signOutError ? (
+              <p className="profile-signout-error">{signOutError}</p>
+            ) : null}
             <button
-              className={`btn btn-auth-cta ${signOutVariant}`}
+              className={`profile-signout-btn ${signOutVariant}`}
               onClick={handleSignOut}
               disabled={signOutStatus === "submitting" || signOutStatus === "success"}
             >

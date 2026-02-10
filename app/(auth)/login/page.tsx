@@ -51,57 +51,83 @@ export default function LoginPage() {
         : "登录";
 
   return (
-    <section className="auth-shell h-full min-h-0 overflow-auto pr-1">
-      <div className="auth-stack mx-auto w-full max-w-6xl space-y-6">
-        <div className="card auth-intro-card p-7 md:p-10">
-          <div className="auth-brand">
-            <span className="auth-brand-icon">
-              <Image src="/icon.svg" alt="RSS-Bot" fill sizes="44px" priority />
-            </span>
-            <div>
-              <p className="auth-brand-eyebrow">RSS-Bot</p>
-              <h2 className="text-lg font-semibold md:text-2xl">登录你的账号</h2>
-              <p className="auth-brand-slogan">使用AI重塑订阅</p>
-            </div>
+    <div className="login-page">
+      {/* Background decorative elements */}
+      <div className="login-bg-decor" aria-hidden="true">
+        <div className="login-bg-orb login-bg-orb--1" />
+        <div className="login-bg-orb login-bg-orb--2" />
+        <div className="login-bg-orb login-bg-orb--3" />
+      </div>
+
+      <div className="login-container">
+        {/* Brand header */}
+        <div className="login-brand">
+          <span className="login-brand-icon">
+            <Image src="/icon.svg" alt="RSS-Bot" fill sizes="48px" priority />
+          </span>
+          <div>
+            <p className="login-brand-eyebrow">RSS-Bot</p>
+            <h1 className="login-brand-title">登录你的账号</h1>
           </div>
         </div>
-        <div className="card auth-form-card p-7 md:p-10">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="text-sm font-medium">邮箱</label>
+
+        {/* Login card */}
+        <div className="login-card">
+          <div className="login-card-header">
+            <h2 className="login-card-heading">欢迎回来</h2>
+            <p className="login-card-subheading">使用邮箱和密码登录，开始你的 AI 订阅之旅</p>
+          </div>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-field">
+              <label className="login-label" htmlFor="login-email">邮箱地址</label>
               <input
-                className="input mt-2"
+                id="login-email"
+                className="login-input"
                 type="email"
+                placeholder="name@example.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 disabled={isTransitioning}
+                autoComplete="email"
                 required
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">密码</label>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="login-password">密码</label>
               <input
-                className="input mt-2"
+                id="login-password"
+                className="login-input"
                 type="password"
+                placeholder="输入密码"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 disabled={isTransitioning}
+                autoComplete="current-password"
                 required
               />
             </div>
+
             {feedback ? (
-              <p className={`auth-feedback ${feedback.type === "error" ? "auth-feedback--error" : "auth-feedback--success"}`}>
+              <p className={`login-feedback ${feedback.type === "error" ? "login-feedback--error" : "login-feedback--success"}`}>
                 {feedback.message}
               </p>
             ) : null}
-            <div className="flex flex-col gap-3 sm:items-start">
-              <button className={`btn btn-auth-cta ${submitVariantClass}`} type="submit" disabled={isTransitioning}>
-                {submitLabel}
-              </button>
-            </div>
+
+            <button
+              className={`login-submit ${submitVariantClass}`}
+              type="submit"
+              disabled={isTransitioning}
+            >
+              {submitLabel}
+            </button>
           </form>
         </div>
+
+        {/* Footer tagline */}
+        <p className="login-footer">使用 AI 重塑订阅</p>
       </div>
-    </section>
+    </div>
   );
 }

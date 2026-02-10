@@ -40,10 +40,6 @@ body {
   display: none;
 }
 
-.login-mode .app-header {
-  display: none;
-}
-
 .container-app {
   /* keep layout consistent across header/main */
   @apply mx-auto max-w-7xl px-6 md:px-8;
@@ -163,14 +159,66 @@ body {
   filter: brightness(0.95);
 }
 
-.btn-auth-cta {
-  @apply px-5 py-2.5 font-semibold;
-  min-width: 9rem;
+
+/* ── Header auth ───────────────────────────────────── */
+.header-auth-skeleton {
+  display: inline-block;
+  width: 5rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.22) 50%, rgba(148, 163, 184, 0.12) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
 }
 
-.btn-auth-subtle {
-  @apply px-4 py-2.5;
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
+
+.header-auth-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.7rem 0.25rem 0.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 180ms ease;
+}
+
+.header-auth-user:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.header-auth-avatar {
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  background-image: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.header-auth-email {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+}
+
 
 .input {
   @apply w-full rounded-lg border bg-white px-3 py-2 text-sm;
@@ -363,93 +411,349 @@ body {
     inset 0 0 0 8px rgba(255, 255, 255, 0.38);
 }
 
-.auth-shell {
-  padding-top: clamp(0.5rem, 2.4vh, 1.5rem);
-  padding-bottom: clamp(0.8rem, 2.4vh, 1.8rem);
-}
-
-.auth-stack {
-  padding-inline: clamp(0.4rem, 2.2vw, 1.5rem);
-}
-
-.auth-intro-card,
-.auth-form-card,
-.auth-logout-card {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.86) 100%),
-    rgba(255, 255, 255, 0.78);
-  box-shadow:
-    0 14px 34px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.76);
-}
-
-.auth-intro-card {
-  border-color: rgba(14, 165, 233, 0.25);
-}
-
-.auth-form-card {
-  border-color: rgba(99, 102, 241, 0.25);
-}
-
-.auth-logout-card {
-  border-color: rgba(249, 115, 22, 0.28);
-}
-
-.auth-brand {
-  display: flex;
-  gap: 0.85rem;
-  align-items: flex-start;
-}
-
-.auth-brand-icon {
+/* ── Login page ─────────────────────────────────────── */
+.login-page {
   position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 0.8rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  padding: 1.5rem;
+  overflow: auto;
+}
+
+.login-bg-decor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.login-bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+
+.login-bg-orb--1 {
+  width: 420px;
+  height: 420px;
+  top: -8%;
+  left: -6%;
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.login-bg-orb--2 {
+  width: 340px;
+  height: 340px;
+  top: 10%;
+  right: -4%;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.login-bg-orb--3 {
+  width: 280px;
+  height: 280px;
+  bottom: -6%;
+  left: 30%;
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.login-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  max-width: 460px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.login-brand-icon {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
   background: rgba(255, 255, 255, 0.96);
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
-.auth-brand-eyebrow {
+.login-brand-eyebrow {
   margin: 0;
   font-size: 11px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(2, 132, 199, 0.82);
   font-weight: 700;
 }
 
-.auth-brand-slogan {
-  margin: 0.35rem 0 0;
+.login-brand-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.login-card {
+  width: 100%;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.92) 100%);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.1),
+    0 8px 20px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: clamp(2rem, 5vw, 3rem);
+}
+
+.login-card-header {
+  margin-bottom: 2rem;
+}
+
+.login-card-heading {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.login-card-subheading {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(71, 85, 105, 0.9);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.login-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
   font-size: 0.95rem;
-  line-height: 1.45;
-  color: rgba(51, 65, 85, 0.9);
-  font-weight: 600;
+  color: #0f172a;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
-.auth-notice {
-  border: 1px solid rgba(34, 197, 94, 0.34);
-  background: rgba(240, 253, 244, 0.92);
+.login-input::placeholder {
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: rgba(14, 165, 233, 0.7);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.login-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-feedback {
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+}
+
+.login-feedback--success {
   color: rgba(21, 128, 61, 0.95);
-  border-radius: 0.75rem;
-  padding: 0.7rem 0.95rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: rgba(240, 253, 244, 0.8);
 }
 
-.auth-feedback {
-  font-size: 0.9rem;
+.login-feedback--error {
+  color: rgba(220, 38, 38, 0.92);
+  background: rgba(254, 242, 242, 0.8);
+}
+
+.login-submit {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-60;
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+  border-color: transparent;
+  transition: all 180ms ease;
+}
+
+.login-footer {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: rgba(100, 116, 139, 0.7);
   font-weight: 500;
 }
 
-.auth-feedback--success {
-  color: rgba(21, 128, 61, 0.95);
+/* ── Profile page ──────────────────────────────────── */
+.profile-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
-.auth-feedback--error {
-  color: rgba(220, 38, 38, 0.92);
+.profile-container {
+  max-width: 540px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-image: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25);
+}
+
+.profile-header-info {
+  min-width: 0;
+}
+
+.profile-header-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.profile-header-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(100, 116, 139, 0.85);
+}
+
+.profile-card {
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+  padding: 1.25rem 1.5rem;
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.profile-card--danger {
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.profile-card-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.profile-card-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  color: rgba(100, 116, 139, 0.85);
+  line-height: 1.5;
+}
+
+.profile-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.7rem 0;
+}
+
+.profile-field + .profile-field {
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.profile-field:first-of-type {
+  margin-top: 0.65rem;
+}
+
+.profile-field-label {
+  font-size: 0.82rem;
+  color: rgba(100, 116, 139, 0.8);
+  flex-shrink: 0;
+}
+
+.profile-field-value {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #1e293b;
+  text-align: right;
+  word-break: break-all;
+  min-width: 0;
+}
+
+.profile-field-mono {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: rgba(71, 85, 105, 0.85);
+}
+
+.profile-signout-error {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(220, 38, 38, 0.9);
+  font-weight: 500;
+}
+
+.profile-signout-btn {
+  @apply inline-flex items-center justify-center rounded-lg border font-medium shadow-sm disabled:cursor-not-allowed disabled:opacity-60;
+  margin-top: 1rem;
+  padding: 0.55rem 1.5rem;
+  font-size: 0.88rem;
+  border-color: transparent;
+  transition: all 180ms ease;
 }
 
 @media (max-width: 820px) {
@@ -459,13 +763,16 @@ body {
   .hero-orb-wrap {
     justify-content: flex-start;
   }
-  .auth-stack {
-    padding-inline: 0.1rem;
+  .login-page {
+    padding: 1rem;
   }
-  .btn-auth-cta {
-    width: 100%;
+  .login-card {
+    padding: 1.5rem;
   }
-  .btn-auth-subtle {
-    width: 100%;
+  .login-brand-title {
+    font-size: 1.15rem;
+  }
+  .profile-card {
+    padding: 1rem 1.15rem;
   }
 }

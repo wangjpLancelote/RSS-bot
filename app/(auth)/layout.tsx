@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import LoginRouteChrome from "./LoginRouteChrome";
 
 export const metadata: Metadata = {
   robots: {
@@ -8,15 +7,14 @@ export const metadata: Metadata = {
   }
 };
 
-export default function LoginLayout({
+export default function AuthLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <LoginRouteChrome />
+    <main className="flex flex-1 min-h-0 overflow-auto">
       {children}
-    </>
+    </main>
   );
 }
