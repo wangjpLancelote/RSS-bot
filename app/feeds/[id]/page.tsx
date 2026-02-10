@@ -6,6 +6,7 @@ import TurndownService from "turndown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import FeedDetailActions from "@/components/FeedDetailActions";
+import FeedItemsEmpty from "@/components/FeedItemsEmpty";
 import StatusBadge from "@/components/StatusBadge";
 import type { Feed, FeedItem } from "@/lib/types";
 import { apiErrorMessage, authFetch } from "@/lib/api";
@@ -184,11 +185,11 @@ export default function FeedDetailPage() {
   }
 
   if (error) {
-    return <div className="card p-6 text-sm text-red-600">{error}</div>;
+    return <div className="mx-auto w-full max-w-5xl card p-6 text-sm text-red-600">{error}</div>;
   }
 
   if (!feed) {
-    return <p>订阅源不存在。</p>;
+    return <p className="mx-auto w-full max-w-5xl">订阅源不存在。</p>;
   }
 
   const selectItem = (itemId: string) => {
@@ -213,7 +214,7 @@ export default function FeedDetailPage() {
 
   return (
     <AuthGate>
-      <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden md:gap-6">
+      <section className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4 overflow-hidden md:gap-6">
         {!zenMode ? (
           <div className="card shrink-0 space-y-3 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -248,7 +249,7 @@ export default function FeedDetailPage() {
               </div>
               <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {items.length === 0 ? (
-                  <p className="text-sm text-gray-600">暂无条目，请刷新订阅源。</p>
+                  <FeedItemsEmpty />
                 ) : (
                   items.map((item) => {
                     const selected = selectedItemId === item.id;
@@ -285,7 +286,9 @@ export default function FeedDetailPage() {
 
           <div className={`min-h-0 overflow-hidden ${!zenMode && mobileView === "list" ? "hidden md:block" : ""}`}>
             <div className="card flex h-full min-h-0 flex-col overflow-hidden p-4 md:p-6">
-              {!selectedItemId ? (
+              {items.length === 0 ? (
+                <FeedItemsEmpty />
+              ) : !selectedItemId ? (
                 <p className="text-sm text-gray-600">请选择一篇条目开始阅读。</p>
               ) : hasInvalidItemParam ? (
                 <p className="text-sm text-red-600">当前条目不存在或不属于此订阅源。</p>
