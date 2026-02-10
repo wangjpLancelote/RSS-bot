@@ -1,6 +1,7 @@
-# RSS Reader MVP
+# RSS-Bot
 
-一个面向团队协作的 RSS 与网页订阅平台：支持账号鉴权、RSS 管理、非 RSS 链接自动转换、定时刷新与增量去重阅读。
+一个面向团队协作的 RSS 与网页订阅平台：支持账号鉴权、RSS 管理、非 RSS 链接自动转换、定时刷新与增量去重阅读。  
+品牌主张：**RSS-Bot 使用AI重塑订阅**。
 
 ## 目录
 - [项目背景与目标](#项目背景与目标)
@@ -41,6 +42,7 @@
 - 非 RSS 链接 intake 异步处理：`detecting -> converting -> validating -> creating -> done/failed`。
 - 定时刷新与手动刷新（`/refresh`、`/feeds/:id/refresh`、`/cron/refresh`）。
 - 网页监控源增量去重（启发式 + 可插拔 LLM 适配器）。
+- 品牌化 UI 与 SEO 基线（多色主题、favicon、OpenGraph/Twitter、robots、sitemap）。
 
 ## 系统模块说明
 ### 1) 前端应用层
@@ -342,6 +344,7 @@ npm run import:default:feeds
 | `SUPABASE_ANON_KEY` | 否 | 后端鉴权回退 | 无 | 必须是 anon/public 或 publishable |
 | `NEXT_PUBLIC_SUPABASE_URL` | 是 | 前端 | 无 | 浏览器端 Supabase URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 是 | 前端 | 无 | 不能使用 `sb_secret_*` |
+| `NEXT_PUBLIC_SITE_URL` | 建议 | 前端 + SEO | 空 | 生产环境建议配置站点绝对 URL，用于 canonical/OG |
 | `NEXT_PUBLIC_API_BASE_URL` | 是 | 前端 | `http://localhost:4000` | 前端请求后端基础地址 |
 | `PORT` | 否 | 后端 | `4000` | Express 监听端口 |
 | `ALLOWED_ORIGIN` | 建议 | 后端 | `http://localhost:3000` | 生产环境不要使用 `*` |
@@ -651,6 +654,7 @@ npm run smoke
 ## 相关文档索引
 - 部署文档：`docs/deploy.md`
 - 后端说明：`server/README.md`
+- 前端 SEO 入口：`app/layout.tsx`、`app/robots.ts`、`app/sitemap.ts`
 - 数据库结构：`supabase/schema.sql`
 - Auth 扩展：`supabase/auth_schema.sql`
 - RLS 策略：`supabase/rls-auth.sql`

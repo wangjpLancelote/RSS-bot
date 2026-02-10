@@ -4,22 +4,34 @@ import { useEffect, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { getCachedProfile, setCachedProfile } from "@/lib/stores/profileStore";
 
 export default function ProfilePage() {
   const { session } = useSession();
   const userId = session?.user?.id;
-  const [email, setEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(session?.user?.email ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const load = async () => {
       if (!userId) {
         setEmail(null);
         setLoading(false);
         return;
       }
-      setLoading(true);
+
+      const cached = getCachedProfile(userId);
+      const hasCached = Boolean(cached);
+      if (hasCached) {
+        setEmail(cached?.email ?? session?.user?.email ?? null);
+        setLoading(false);
+      } else {
+        setEmail(session?.user?.email ?? null);
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -35,15 +47,28 @@ export default function ProfilePage() {
         }
 
         const dbEmail = (data as { email?: string } | null)?.email ?? null;
-        setEmail(dbEmail ?? session?.user?.email ?? null);
+        const nextEmail = dbEmail ?? session?.user?.email ?? null;
+        if (cancelled) {
+          return;
+        }
+        setEmail(nextEmail);
+        setCachedProfile(userId, nextEmail);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "读取失败");
+        if (!cancelled && !hasCached) {
+          setError(err instanceof Error ? err.message : "读取失败");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    load();
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [session?.user?.email, userId]);
 
   return (

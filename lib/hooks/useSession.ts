@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { clearCachedProfile, setCachedProfile } from "@/lib/stores/profileStore";
 
 function parseJwtExp(token: string): number | null {
   const parts = token.split(".");
@@ -37,6 +38,7 @@ export default function useSession() {
           if (!exp || exp <= now) {
             await supabase.auth.signOut({ scope: "local" });
             setSession(null);
+            clearCachedProfile();
             supabase.realtime.setAuth("");
             setLoading(false);
             return;
@@ -44,6 +46,11 @@ export default function useSession() {
         }
 
         setSession(currentSession ?? null);
+        if (currentSession?.user?.id) {
+          setCachedProfile(currentSession.user.id, currentSession.user.email ?? null);
+        } else {
+          clearCachedProfile();
+        }
         if (token) {
           supabase.realtime.setAuth(token);
         } else {
@@ -62,6 +69,11 @@ export default function useSession() {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      if (nextSession?.user?.id) {
+        setCachedProfile(nextSession.user.id, nextSession.user.email ?? null);
+      } else {
+        clearCachedProfile();
+      }
       if (nextSession?.access_token) {
         supabase.realtime.setAuth(nextSession.access_token);
       } else {

@@ -9,7 +9,7 @@ const statusClass: Record<FeedStatus, string> = {
 
 const statusLabel: Record<FeedStatus, string> = {
   idle: "空闲",
-  fetching: "更新中",
+  fetching: "抓取中",
   ok: "正常",
   error: "异常"
 };

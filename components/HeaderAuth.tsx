@@ -31,7 +31,7 @@ export default function HeaderAuth() {
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="text-gray-600">{session.user.email || "已登录"}</span>
-      <button className="btn" onClick={signOut}>
+      <button className="btn btn-sm" onClick={signOut}>
         退出
       </button>
     </div>

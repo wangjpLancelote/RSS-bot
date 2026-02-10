@@ -2,14 +2,19 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-ink: #0b0f1a;
-  --color-fog: #f2f3f5;
-  --color-accent: #2a6fdb;
-  --color-accent2: #f25f4c;
+  --color-ink: #0f172a;
+  --color-fog: #f8fafc;
+  --color-accent: #0ea5e9;
+  --color-accent2: #f97316;
+  --color-primary: #0ea5e9;
+  --color-secondary: #f97316;
+  --color-tertiary: #22c55e;
+  --color-indigo: #6366f1;
 }
 
 :root {
   color-scheme: light;
+  font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
 }
 
 html,
@@ -20,6 +25,11 @@ body {
 
 body {
   @apply bg-fog text-ink antialiased;
+  background-image:
+    radial-gradient(circle at 12% 10%, rgba(56, 189, 248, 0.12) 0, rgba(56, 189, 248, 0) 40%),
+    radial-gradient(circle at 88% 12%, rgba(165, 180, 252, 0.12) 0, rgba(165, 180, 252, 0) 36%),
+    linear-gradient(165deg, #fcfdff 0%, #f6f8fd 58%, #eff3fb 100%);
+  background-attachment: fixed;
 }
 
 .page {
@@ -36,7 +46,11 @@ body {
 }
 
 .card {
-  @apply rounded-xl border border-black/10 bg-white/80 shadow-sm backdrop-blur;
+  @apply rounded-xl border bg-white/75 shadow-sm backdrop-blur;
+  border-color: rgba(148, 163, 184, 0.32);
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
 }
 
 .badge {
@@ -44,39 +58,80 @@ body {
 }
 
 .badge-idle {
-  @apply bg-gray-100 text-gray-700;
+  @apply bg-slate-100 text-slate-700;
 }
 
 .badge-fetching {
-  @apply bg-blue-100 text-blue-700;
+  @apply bg-sky-100 text-sky-700;
 }
 
 .badge-ok {
-  @apply bg-green-100 text-green-700;
+  @apply bg-emerald-100 text-emerald-700;
 }
 
 .badge-error {
-  @apply bg-red-100 text-red-700;
+  @apply bg-orange-100 text-orange-700;
 }
 
 .link {
-  @apply text-accent hover:underline;
+  color: var(--color-indigo);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border bg-white/95 px-3 py-2 text-sm font-medium shadow-sm disabled:cursor-not-allowed disabled:opacity-60;
+  border-color: rgba(148, 163, 184, 0.35);
+  transition: all 180ms ease;
+}
+
+.btn:hover:not(.btn-primary):not(.btn-danger) {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  @apply px-2.5 py-1 text-xs;
 }
 
 .btn-primary {
-  @apply border-transparent bg-accent text-white hover:bg-blue-700;
+  border-color: transparent;
+  color: #fff;
+  background-image: linear-gradient(120deg, #0ea5e9 0%, #6366f1 50%, #f97316 100%);
+}
+
+.btn-primary:hover {
+  color: #fff;
+  background-image: linear-gradient(120deg, #0ea5e9 0%, #6366f1 50%, #f97316 100%);
+  border-color: transparent;
+  transform: translateY(-1px);
+  filter: saturate(1.08) brightness(0.97);
 }
 
 .btn-danger {
-  @apply border-transparent bg-accent2 text-white hover:bg-red-600;
+  @apply border-transparent text-white;
+  background-image: linear-gradient(120deg, #f97316 0%, #ef4444 100%);
+}
+
+.btn-danger:hover {
+  filter: brightness(0.95);
 }
 
 .input {
-  @apply w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm;
+  @apply w-full rounded-lg border bg-white px-3 py-2 text-sm;
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(14, 165, 233, 0.75);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16);
 }
 
 .table {
@@ -113,28 +168,40 @@ body {
 .global-loading__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(11, 15, 26, 0.24);
-  backdrop-filter: blur(1px);
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(2px);
 }
 
 .global-loading__center {
   position: relative;
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 62px;
+  height: 62px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  background: rgba(248, 250, 252, 0.94);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.24);
 }
 
 .global-loading__spinner {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
-  border: 3px solid rgba(42, 111, 219, 0.2);
-  border-top-color: var(--color-accent);
+  border: 3px solid rgba(99, 102, 241, 0.18);
+  border-top-color: var(--color-primary);
+  border-right-color: var(--color-indigo);
+  border-bottom-color: var(--color-secondary);
   animation: global-loading-spin 0.8s linear infinite;
+}
+
+.global-loading__label {
+  position: absolute;
+  bottom: -18px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(51, 65, 85, 0.78);
+  font-weight: 600;
 }
 
 @keyframes global-loading-spin {
@@ -174,4 +241,72 @@ body {
 
 *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+.hero-shell {
+  background:
+    linear-gradient(120deg, rgba(14, 165, 233, 0.12) 0%, rgba(99, 102, 241, 0.11) 50%, rgba(249, 115, 22, 0.12) 100%),
+    rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.hero-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(2, 132, 199, 0.88);
+  font-weight: 700;
+}
+
+.hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(1.9rem, 5.2vw, 2.8rem);
+  line-height: 1.08;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 52ch;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(51, 65, 85, 0.92);
+}
+
+.hero-orb-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-orb {
+  width: 112px;
+  height: 112px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 28%, rgba(240, 249, 255, 0.95), rgba(240, 249, 255, 0) 42%),
+    conic-gradient(from 120deg, #0ea5e9, #6366f1, #f97316, #22c55e, #0ea5e9);
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.14),
+    inset 0 0 0 8px rgba(255, 255, 255, 0.38);
+}
+
+@media (max-width: 820px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-orb-wrap {
+    justify-content: flex-start;
+  }
 }

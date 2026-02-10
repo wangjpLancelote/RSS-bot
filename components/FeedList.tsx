@@ -89,8 +89,10 @@ function SourceBadge({ sourceType }: { sourceType?: string | null }) {
   return (
     <span
       className={[
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        isWeb ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        isWeb
+          ? "border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 text-orange-700"
+          : "border-sky-200 bg-gradient-to-r from-sky-50 to-indigo-50 text-sky-700"
       ].join(" ")}
     >
       {isWeb ? "网页监控" : "RSS"}
@@ -297,7 +299,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
           {menuOpen ? (
             <div
               role="menu"
-              className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg"
+              className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-lg backdrop-blur"
             >
               <button
                 role="menuitem"
@@ -393,7 +395,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                 <div
                   key={feed.id}
                   className={[
-                    "card p-5 transition-all duration-200 ease-out hover:bg-white hover:shadow-md hover:-translate-y-0.5",
+                    "card p-5 transition-all duration-200 ease-out hover:bg-white/95 hover:shadow-md hover:-translate-y-0.5",
                     isRemoving ? "opacity-0 scale-[0.98] -translate-y-1" : "opacity-100 scale-100 translate-y-0",
                     isBusy ? "pointer-events-none opacity-80" : "",
                     isSelected ? "ring-2 ring-accent/50" : ""

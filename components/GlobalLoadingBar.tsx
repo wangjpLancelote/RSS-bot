@@ -27,6 +27,7 @@ export default function GlobalLoadingBar() {
       <div className="global-loading__backdrop" />
       <div className="global-loading__center">
         <div className="global-loading__spinner" />
+        <span className="global-loading__label">Sync</span>
       </div>
     </div>
   );

@@ -129,7 +129,7 @@ export default function FeedForm({ mode, defaultUrl = "", defaultTitle = "", fee
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium">RSS/Atom 链接</label>
+        <label className="text-sm font-medium text-slate-700">RSS/Atom 链接</label>
         <input
           className="input mt-2"
           placeholder="https://example.com/feed.xml 或页面链接"
@@ -139,7 +139,7 @@ export default function FeedForm({ mode, defaultUrl = "", defaultTitle = "", fee
         />
       </div>
       <div>
-        <label className="text-sm font-medium">自定义标题（可选）</label>
+        <label className="text-sm font-medium text-slate-700">自定义标题（可选）</label>
         <input
           className="input mt-2"
           placeholder="我的订阅"
@@ -149,25 +149,25 @@ export default function FeedForm({ mode, defaultUrl = "", defaultTitle = "", fee
       </div>
 
       {mode === "create" && intake ? (
-        <div className="rounded-lg border border-black/10 bg-white/70 p-3">
-          <div className="flex items-center justify-between text-xs text-gray-600">
+        <div className="rounded-lg border border-slate-200/80 bg-gradient-to-r from-sky-50/70 via-indigo-50/70 to-orange-50/70 p-3">
+          <div className="flex items-center justify-between text-xs text-slate-700">
             <span>任务状态：{stageLabel[intake.stage]}</span>
             <span>{Math.min(100, Math.max(0, intake.progress || 0))}%</span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200/80">
             <div
-              className="h-full bg-accent transition-all duration-300"
+              className="h-full bg-[linear-gradient(90deg,#0ea5e9,#6366f1,#f97316)] transition-all duration-300"
               style={{ width: `${Math.min(100, Math.max(0, intake.progress || 0))}%` }}
             />
           </div>
-          <div className="mt-2 flex gap-2 text-xs text-gray-600">
-            <span className={intake.stage === "detecting" ? "font-semibold text-ink" : ""}>检测 RSS</span>
+          <div className="mt-2 flex gap-2 text-xs text-slate-600">
+            <span className={intake.stage === "detecting" ? "font-semibold text-slate-900" : ""}>检测 RSS</span>
             <span>{">"}</span>
-            <span className={intake.stage === "converting" ? "font-semibold text-ink" : ""}>AI 转换</span>
+            <span className={intake.stage === "converting" ? "font-semibold text-slate-900" : ""}>AI 转换</span>
             <span>{">"}</span>
-            <span className={intake.stage === "validating" ? "font-semibold text-ink" : ""}>规则校验</span>
+            <span className={intake.stage === "validating" ? "font-semibold text-slate-900" : ""}>规则校验</span>
             <span>{">"}</span>
-            <span className={intake.stage === "creating" ? "font-semibold text-ink" : ""}>创建</span>
+            <span className={intake.stage === "creating" ? "font-semibold text-slate-900" : ""}>创建</span>
           </div>
         </div>
       ) : null}
