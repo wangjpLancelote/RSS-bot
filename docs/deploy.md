@@ -13,6 +13,30 @@
   - `assets.directory = ".open-next/assets"`
   - `compatibility_flags = ["nodejs_compat"]`
 
+### 前端部署图
+```mermaid
+flowchart TD
+  A[".env"] --> B["npm run wrangler:env"]
+  B --> C[".dev.vars / .env.wrangler"]
+  C --> D["npm run build:cf"]
+  D --> E["OpenNext Build"]
+  E --> F[".open-next/worker.js"]
+  E --> G[".open-next/assets"]
+  F --> H["wrangler deploy --env-file .env.wrangler"]
+  G --> H
+  H --> I["Cloudflare Worker"]
+  I --> J["Browser Request"]
+  I --> K["Render API"]
+  I --> L["Supabase"]
+```
+
+### 前端部署所需库
+- `next`：Next.js 应用框架，提供构建与 SSR/路由能力。
+- `react`、`react-dom`：前端运行时基础依赖。
+- `@opennextjs/cloudflare`：将 Next.js 构建产物转换为 Cloudflare Worker 可部署结构。
+- `wrangler`（CLI）：本地预览与部署到 Cloudflare Workers。当前脚本使用 `npx wrangler@latest`，无需固定本地版本。
+- `dotenv`：用于 `scripts/sync-wrangler-env.mjs`，把 `.env` 同步到 `.dev.vars` 和 `.env.wrangler`。
+
 ### 本地与发布命令
 - 同步 `.env` 到 Wrangler 可读文件（`.dev.vars` / `.env.wrangler`）：
   - `npm run wrangler:env`
