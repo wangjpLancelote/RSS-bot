@@ -10,7 +10,7 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   if (!process.env.CRON_SECRET) {
     console.warn("[cron] CRON_SECRET is empty. /cron/refresh is not protected.");
   }
