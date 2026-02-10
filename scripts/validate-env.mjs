@@ -58,6 +58,24 @@ const specs = [
     required: false,
     requiredIn: "cron endpoint",
     purpose: "保护 /cron/refresh 的 header secret。"
+  },
+  {
+    key: "RSS_LLM_ADAPTER_PATH",
+    required: false,
+    requiredIn: "optional LLM extension",
+    purpose: "可插拔 LLM 适配器模块路径（未配置则使用启发式）。"
+  },
+  {
+    key: "INTAKE_MAX_CONVERSION_MS",
+    required: false,
+    requiredIn: "AI feed intake + semantic dedupe",
+    purpose: "单次转换超时预算（毫秒）。"
+  },
+  {
+    key: "INTAKE_FETCH_TIMEOUT_MS",
+    required: false,
+    requiredIn: "AI feed intake + semantic dedupe",
+    purpose: "单页面抓取/渲染超时预算（毫秒）。"
   }
 ];
 
@@ -123,6 +141,10 @@ if (invalid.length > 0) {
 
 if (!process.env.CRON_SECRET) {
   console.warn("Warning: CRON_SECRET is empty. /cron/refresh will be callable without secret.");
+}
+
+if (!process.env.RSS_LLM_ADAPTER_PATH) {
+  console.warn("Warning: RSS_LLM_ADAPTER_PATH is empty. LLM behavior will stay in heuristic mode.");
 }
 
 if (process.env.ALLOWED_ORIGIN === "*") {

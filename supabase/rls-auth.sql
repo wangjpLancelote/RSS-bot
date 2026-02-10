@@ -5,6 +5,8 @@ alter table public.feed_items enable row level security;
 alter table public.fetch_runs enable row level security;
 alter table public.feed_events enable row level security;
 alter table public.users enable row level security;
+alter table public.feed_intake_jobs enable row level security;
+alter table public.web_snapshots enable row level security;
 
 create policy "user_read_feeds" on public.feeds
   for select
@@ -85,6 +87,46 @@ create policy "user_write_events" on public.feed_events
   to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+create policy "user_read_intake_jobs" on public.feed_intake_jobs
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "user_write_intake_jobs" on public.feed_intake_jobs
+  for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "user_read_web_snapshots" on public.web_snapshots
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.feeds f
+      where f.id = web_snapshots.feed_id
+        and f.user_id = auth.uid()
+    )
+  );
+
+create policy "user_write_web_snapshots" on public.web_snapshots
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.feeds f
+      where f.id = web_snapshots.feed_id
+        and f.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.feeds f
+      where f.id = web_snapshots.feed_id
+        and f.user_id = auth.uid()
+    )
+  );
 
 create policy "user_read_profile" on public.users
   for select

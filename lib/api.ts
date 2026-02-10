@@ -31,9 +31,17 @@ export function apiErrorMessage(
   return data.error || fallback;
 }
 
-export async function authFetch(path: string, options: RequestInit = {}) {
+export async function authFetch(
+  path: string,
+  options: RequestInit = {},
+  meta: {
+    silentLoading?: boolean;
+  } = {}
+) {
   const isBrowser = typeof window !== "undefined";
-  if (isBrowser) {
+  const shouldEmitLoading = isBrowser && !meta.silentLoading;
+
+  if (shouldEmitLoading) {
     window.dispatchEvent(new CustomEvent("app:loading", { detail: { delta: 1 } }));
   }
 
@@ -100,7 +108,7 @@ export async function authFetch(path: string, options: RequestInit = {}) {
 
     return response;
   } finally {
-    if (isBrowser) {
+    if (shouldEmitLoading) {
       window.dispatchEvent(new CustomEvent("app:loading", { detail: { delta: -1 } }));
     }
   }

@@ -10,7 +10,7 @@ export default function NewFeedPage() {
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="text-lg font-semibold">新增订阅</h2>
-            <p className="mt-1 text-sm text-gray-600">粘贴 RSS/Atom 链接或页面链接。</p>
+            <p className="mt-1 text-sm text-gray-600">输入 RSS/Atom 或任意页面链接，系统会自动检测并尝试转换为可订阅源。</p>
           </div>
           <div className="card p-6">
             <FeedForm mode="create" />

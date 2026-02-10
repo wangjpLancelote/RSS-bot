@@ -1,6 +1,12 @@
 import Parser from "rss-parser";
 import { serviceClient } from "./supabase";
 import { DEFAULT_HEADERS } from "../utils/constants";
+import {
+  candidateContentHash,
+  extractCandidatesForRefresh,
+  semanticDecideNovelty,
+  type LlmDecision
+} from "./langgraphPipeline";
 
 const parser: Parser = new Parser({
   customFields: {
@@ -8,14 +14,28 @@ const parser: Parser = new Parser({
   }
 });
 
+type FeedSourceType = "rss" | "web_monitor";
+
+type FeedRow = {
+  id: string;
+  url: string;
+  title: string | null;
+  site_url: string | null;
+  description: string | null;
+  status: string;
+  last_fetched_at: string | null;
+  last_error: string | null;
+  etag: string | null;
+  last_modified: string | null;
+  source_type?: FeedSourceType | null;
+  source_url?: string | null;
+  extraction_mode?: "partial_preferred" | "full_page" | null;
+  extraction_rule?: Record<string, unknown> | null;
+};
+
 function normalizeGuid(item: Parser.Item): string {
   const itemId = (item as any).id as string | undefined;
-  return (
-    item.guid ||
-    itemId ||
-    item.link ||
-    `${item.title || "item"}-${item.isoDate || item.pubDate || Date.now()}`
-  );
+  return item.guid || itemId || item.link || `${item.title || "item"}-${item.isoDate || item.pubDate || Date.now()}`;
 }
 
 type FeedItemRow = {
@@ -46,56 +66,74 @@ function toItemRow(feedId: string, item: Parser.Item): FeedItemRow {
   };
 }
 
-export async function fetchAndStoreFeed(feedId: string, userId?: string) {
+function normalizeCandidateKey(candidate: { key: string; link: string | null; title: string | null }) {
+  return candidate.key || `${candidate.link || "no-link"}:${candidate.title || "no-title"}`;
+}
+
+async function loadFeedById(feedId: string, userId?: string) {
   let feedQuery = serviceClient.from("feeds").select("*").eq("id", feedId);
   if (userId) {
-    // Allow both:
-    // 1) current user's feeds
-    // 2) legacy/default feeds created before auth mode (user_id is null)
     feedQuery = feedQuery.or(`user_id.eq.${userId},user_id.is.null`);
   }
 
   const { data: feed, error } = await feedQuery.maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!feed) throw new Error("Feed not found");
+  return feed as FeedRow;
+}
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!feed) {
-    throw new Error("Feed not found");
-  }
-
+async function setFeedFetching(feedId: string) {
   const now = new Date().toISOString();
-
   await serviceClient
     .from("feeds")
     .update({ status: "fetching", last_error: null, updated_at: now })
     .eq("id", feedId);
+  return now;
+}
 
+async function startFetchRun(feedId: string, startedAt: string) {
   const { data: run } = await serviceClient
     .from("fetch_runs")
-    .insert({ feed_id: feedId, started_at: now, status: "ok", items_added: 0 })
+    .insert({ feed_id: feedId, started_at: startedAt, status: "ok", items_added: 0 })
     .select("id")
     .single();
-  const runId = run?.id as string | undefined;
+  return run?.id as string | undefined;
+}
+
+async function finishFetchRunOk(runId: string | undefined, finishedAt: string, itemsAdded: number) {
+  if (!runId) return;
+  await serviceClient
+    .from("fetch_runs")
+    .update({ finished_at: finishedAt, status: "ok", items_added: itemsAdded })
+    .eq("id", runId);
+}
+
+async function finishFetchRunError(runId: string | undefined, finishedAt: string, error: string) {
+  if (!runId) return;
+  await serviceClient
+    .from("fetch_runs")
+    .update({ finished_at: finishedAt, status: "error", error })
+    .eq("id", runId);
+}
+
+async function fetchAndStoreRssFeed(feed: FeedRow) {
+  const feedId = feed.id;
+  const startedAt = await setFeedFetching(feedId);
+  const runId = await startFetchRun(feedId, startedAt);
 
   try {
     const headers: Record<string, string> = { ...DEFAULT_HEADERS };
-    if (feed.etag) headers["If-None-Match"] = feed.etag as string;
-    if (feed.last_modified) headers["If-Modified-Since"] = feed.last_modified as string;
+    if (feed.etag) headers["If-None-Match"] = feed.etag;
+    if (feed.last_modified) headers["If-Modified-Since"] = feed.last_modified;
 
-    const response = await fetch(feed.url as string, { headers, redirect: "follow" });
+    const response = await fetch(feed.url, { headers, redirect: "follow" });
     if (response.status === 304) {
       const finished = new Date().toISOString();
       await serviceClient
         .from("feeds")
-        .update({ status: "ok", last_fetched_at: finished, updated_at: finished })
+        .update({ status: "ok", last_fetched_at: finished, last_error: null, updated_at: finished })
         .eq("id", feedId);
-      if (runId) {
-        await serviceClient
-          .from("fetch_runs")
-          .update({ finished_at: finished, status: "ok", items_added: 0 })
-          .eq("id", runId);
-      }
+      await finishFetchRunOk(runId, finished, 0);
       return { itemsAdded: 0 };
     }
 
@@ -108,17 +146,13 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
     const items = (parsed.items || []).map((item) => toItemRow(feedId, item));
     const seenGuids = new Set<string>();
     const itemsToInsert = items.filter((item) => {
-      if (seenGuids.has(item.guid)) {
-        return false;
-      }
+      if (seenGuids.has(item.guid)) return false;
       seenGuids.add(item.guid);
       return true;
     });
 
     if (itemsToInsert.length > 0) {
-      await serviceClient
-        .from("feed_items")
-        .upsert(itemsToInsert, { onConflict: "feed_id,guid", ignoreDuplicates: true });
+      await serviceClient.from("feed_items").upsert(itemsToInsert, { onConflict: "feed_id,guid", ignoreDuplicates: true });
     }
 
     const finished = new Date().toISOString();
@@ -137,30 +171,153 @@ export async function fetchAndStoreFeed(feedId: string, userId?: string) {
       })
       .eq("id", feedId);
 
-    if (runId) {
-      await serviceClient
-        .from("fetch_runs")
-        .update({ finished_at: finished, status: "ok", items_added: itemsToInsert.length })
-        .eq("id", runId);
-    }
-
+    await finishFetchRunOk(runId, finished, itemsToInsert.length);
     return { itemsAdded: itemsToInsert.length };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[rss] fetch_and_store_error", { feedId, userId: userId || null, error: message });
+    console.error("[rss] fetch_and_store_error", { feedId, error: message });
+    const finished = new Date().toISOString();
+    await serviceClient.from("feeds").update({ status: "error", last_error: message, updated_at: finished }).eq("id", feedId);
+    await finishFetchRunError(runId, finished, message);
+    throw err;
+  }
+}
+
+async function fetchAndStoreWebMonitorFeed(feed: FeedRow) {
+  const feedId = feed.id;
+  const startedAt = await setFeedFetching(feedId);
+  const runId = await startFetchRun(feedId, startedAt);
+
+  try {
+    const sourceUrl = feed.source_url || feed.url;
+    const extractionMode = feed.extraction_mode === "full_page" ? "full_page" : "partial_preferred";
+    const extractionRule = feed.extraction_rule || {};
+    const { candidates, rendered } = await extractCandidatesForRefresh({
+      url: sourceUrl,
+      extractionMode,
+      extractionRule: extractionRule as any
+    });
+
+    const { data: recentSnapshots } = await serviceClient
+      .from("web_snapshots")
+      .select("candidate_key,content_hash,semantic_summary")
+      .eq("feed_id", feedId)
+      .order("created_at", { ascending: false })
+      .limit(80);
+
+    const existing = recentSnapshots || [];
+    const seenSnapshotKey = new Set(existing.map((item) => `${item.candidate_key}:${item.content_hash}`));
+    const budget = { used: 0, max: 3 };
+    const snapshotRows: any[] = [];
+    const feedItems: FeedItemRow[] = [];
+    const warnings: string[] = [...(rendered.warnings || [])];
+
+    for (const candidate of candidates) {
+      const candidateKey = normalizeCandidateKey(candidate);
+      const contentHash = candidateContentHash(candidate);
+      const snapshotIdentity = `${candidateKey}:${contentHash}`;
+      if (seenSnapshotKey.has(snapshotIdentity)) {
+        continue;
+      }
+
+      const sameKeyRecent = existing
+        .filter((item) => item.candidate_key === candidateKey && item.content_hash !== contentHash)
+        .map((item) => item.semantic_summary || "")
+        .filter(Boolean)
+        .slice(0, 3);
+
+      const semantic = await semanticDecideNovelty({
+        candidate,
+        recentSummaries: sameKeyRecent,
+        budget
+      });
+
+      if (semantic.budgetExceeded) {
+        warnings.push("llm_budget_exceeded");
+      }
+
+      const decision: LlmDecision = semantic.decision;
+      snapshotRows.push({
+        feed_id: feedId,
+        candidate_key: candidateKey,
+        content_hash: contentHash,
+        semantic_summary: semantic.summary,
+        llm_decision: decision,
+        created_at: new Date().toISOString()
+      });
+
+      if (decision === "new") {
+        feedItems.push({
+          feed_id: feedId,
+          guid: `web:${candidateKey}:${contentHash.slice(0, 16)}`,
+          title: candidate.title,
+          link: candidate.link,
+          author: null,
+          content_html: candidate.contentHtml,
+          content_text: candidate.contentMarkdown || candidate.contentText,
+          published_at: candidate.publishedAt,
+          fetched_at: new Date().toISOString()
+        });
+      }
+    }
+
+    if (snapshotRows.length > 0) {
+      await serviceClient
+        .from("web_snapshots")
+        .upsert(snapshotRows, { onConflict: "feed_id,candidate_key,content_hash", ignoreDuplicates: true });
+    }
+
+    if (feedItems.length > 0) {
+      await serviceClient.from("feed_items").upsert(feedItems, { onConflict: "feed_id,guid", ignoreDuplicates: true });
+    }
+
     const finished = new Date().toISOString();
     await serviceClient
       .from("feeds")
-      .update({ status: "error", last_error: message, updated_at: finished })
+      .update({
+        title: feed.title || rendered.title,
+        site_url: feed.site_url || new URL(rendered.url).origin,
+        status: "ok",
+        last_fetched_at: finished,
+        last_error: null,
+        updated_at: finished
+      })
       .eq("id", feedId);
-    if (runId) {
-      await serviceClient
-        .from("fetch_runs")
-        .update({ finished_at: finished, status: "error", error: message })
-        .eq("id", runId);
-    }
+
+    await finishFetchRunOk(runId, finished, feedItems.length);
+
+    return {
+      itemsAdded: feedItems.length,
+      warning: warnings.length > 0 ? warnings.slice(0, 2).join("; ") : null
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown web monitor error";
+    console.error("[web-monitor] fetch_and_store_error", { feedId, error: message });
+    const finished = new Date().toISOString();
+    await serviceClient.from("feeds").update({ status: "error", last_error: message, updated_at: finished }).eq("id", feedId);
+    await finishFetchRunError(runId, finished, message);
     throw err;
   }
+}
+
+export async function fetchAndStoreByType(feedId: string, userId?: string) {
+  const feed = await loadFeedById(feedId, userId);
+  const sourceType = (feed.source_type || "rss") as FeedSourceType;
+
+  if (sourceType === "web_monitor") {
+    return fetchAndStoreWebMonitorFeed(feed);
+  }
+  return fetchAndStoreRssFeed(feed);
+}
+
+// Backward-compatible name used by existing routes.
+export async function fetchAndStoreFeed(feedId: string, userId?: string) {
+  return fetchAndStoreByType(feedId, userId);
+}
+
+export async function fetchAndStoreWebMonitor(feedId: string, userId?: string) {
+  const feed = await loadFeedById(feedId, userId);
+  return fetchAndStoreWebMonitorFeed(feed);
 }
 
 export async function fetchAllFeeds({
@@ -170,21 +327,18 @@ export async function fetchAllFeeds({
   batchSize?: number;
   maxFeeds?: number;
 } = {}) {
-  const results: { feedId: string; itemsAdded?: number; error?: string }[] = [];
+  const results: { feedId: string; sourceType: FeedSourceType; itemsAdded?: number; error?: string; warning?: string | null }[] = [];
   let offset = 0;
   let processed = 0;
 
   while (true) {
     const remaining = typeof maxFeeds === "number" ? Math.max(maxFeeds - processed, 0) : null;
     const currentBatchSize = remaining === null ? batchSize : Math.min(batchSize, remaining);
-
-    if (currentBatchSize === 0) {
-      break;
-    }
+    if (currentBatchSize === 0) break;
 
     const { data: feeds, error } = await serviceClient
       .from("feeds")
-      .select("id")
+      .select("id,source_type")
       .order("created_at", { ascending: true })
       .range(offset, offset + currentBatchSize - 1);
 
@@ -193,35 +347,26 @@ export async function fetchAllFeeds({
       throw new Error(error.message);
     }
 
-    if (!feeds || feeds.length === 0) {
-      break;
-    }
+    if (!feeds || feeds.length === 0) break;
 
     for (const feed of feeds) {
       const currentFeedId = String(feed.id);
+      const sourceType = (feed.source_type || "rss") as FeedSourceType;
       try {
-        const result = await fetchAndStoreFeed(currentFeedId);
-        results.push({ feedId: currentFeedId, itemsAdded: result.itemsAdded });
+        const result = await fetchAndStoreByType(currentFeedId);
+        results.push({ feedId: currentFeedId, sourceType, itemsAdded: result.itemsAdded, warning: (result as any).warning || null });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        console.error("[rss] fetch_all_feed_error", { feedId: currentFeedId, error: message });
-        results.push({
-          feedId: currentFeedId,
-          error: message
-        });
+        console.error("[rss] fetch_all_feed_error", { feedId: currentFeedId, sourceType, error: message });
+        results.push({ feedId: currentFeedId, sourceType, error: message });
       }
     }
 
     processed += feeds.length;
     offset += feeds.length;
 
-    if (typeof maxFeeds === "number" && processed >= maxFeeds) {
-      break;
-    }
-
-    if (feeds.length < currentBatchSize) {
-      break;
-    }
+    if (typeof maxFeeds === "number" && processed >= maxFeeds) break;
+    if (feeds.length < currentBatchSize) break;
   }
 
   return results;

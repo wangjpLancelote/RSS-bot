@@ -143,6 +143,13 @@ router.post("/", async (req: AuthedRequest, res) => {
         url: feedUrl,
         site_url: siteUrl,
         status: "idle",
+        source_type: "rss",
+        source_url: url,
+        resolved_feed_url: feedUrl,
+        extraction_mode: "partial_preferred",
+        extraction_rule: {},
+        transform_status: "none",
+        transform_error: null,
         created_at: now,
         updated_at: now,
         user_id: req.user.id

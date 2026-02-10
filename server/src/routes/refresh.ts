@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { AuthedRequest } from "../types";
 import { serviceClient } from "../services/supabase";
-import { fetchAndStoreFeed } from "../services/rss";
+import { fetchAndStoreByType } from "../services/rss";
 
 const router = Router();
 function logError(event: string, meta: Record<string, unknown>) {
@@ -18,7 +18,7 @@ router.post("/", async (req: AuthedRequest, res) => {
 
   const { data: feeds, error } = await serviceClient
     .from("feeds")
-    .select("id")
+    .select("id,source_type")
     .eq("user_id", req.user.id)
     .order("created_at", { ascending: true })
     .limit(limit);
@@ -30,12 +30,17 @@ router.post("/", async (req: AuthedRequest, res) => {
     return res.status(500).json({ error: error.message, code: "SUPABASE_QUERY_FAILED" });
   }
 
-  const results: { feedId: string; itemsAdded?: number; error?: string }[] = [];
+  const results: { feedId: string; sourceType?: string; warning?: string | null; itemsAdded?: number; error?: string }[] = [];
 
   for (const feed of feeds || []) {
     try {
-      const result = await fetchAndStoreFeed(feed.id as string, req.user.id);
-      results.push({ feedId: feed.id as string, itemsAdded: result.itemsAdded });
+      const result = await fetchAndStoreByType(feed.id as string, req.user.id);
+      results.push({
+        feedId: feed.id as string,
+        sourceType: (feed.source_type as string) || "rss",
+        itemsAdded: result.itemsAdded,
+        warning: (result as any).warning || null
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       logError("refresh_feed_error", {

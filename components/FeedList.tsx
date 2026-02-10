@@ -84,6 +84,20 @@ function IconTrash({ className = "" }: { className?: string }) {
   );
 }
 
+function SourceBadge({ sourceType }: { sourceType?: string | null }) {
+  const isWeb = sourceType === "web_monitor";
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        isWeb ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"
+      ].join(" ")}
+    >
+      {isWeb ? "网页监控" : "RSS"}
+    </span>
+  );
+}
+
 export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
   const [feeds, setFeeds] = useState<Feed[]>(initialFeeds);
   const router = useRouter();
@@ -342,8 +356,12 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                         <div className="min-w-0 flex-1">
                           <p className="wrap-break-word whitespace-normal font-semibold leading-snug">{feed.title || feed.url}</p>
                           <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                          {feed.source_type === "web_monitor" && feed.source_url ? (
+                            <p className="mt-1 whitespace-normal break-all text-xs text-amber-700">来源: {feed.source_url}</p>
+                          ) : null}
                         </div>
                         <div className="shrink-0 flex items-center gap-2">
+                          <SourceBadge sourceType={feed.source_type} />
                           <StatusBadge status={feed.status} />
                           <span
                             className={[
@@ -365,8 +383,12 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                             {feed.title || feed.url}
                           </p>
                           <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                          {feed.source_type === "web_monitor" && feed.source_url ? (
+                            <p className="mt-1 whitespace-normal break-all text-xs text-amber-700">来源: {feed.source_url}</p>
+                          ) : null}
                         </div>
                         <div className="shrink-0 flex items-center gap-2">
+                          <SourceBadge sourceType={feed.source_type} />
                           <StatusBadge status={feed.status} />
                         </div>
                       </div>
@@ -383,6 +405,11 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                     </p>
                     {feed.last_error ? (
                       <p className="wrap-break-word whitespace-normal text-xs text-red-600">{feed.last_error}</p>
+                    ) : null}
+                    {feed.source_type === "web_monitor" ? (
+                      <p className="wrap-break-word whitespace-normal text-xs text-gray-500">
+                        判重策略：语义判重 + 哈希去重
+                      </p>
                     ) : null}
                   </div>
                 </div>

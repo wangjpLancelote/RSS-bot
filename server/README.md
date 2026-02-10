@@ -36,6 +36,8 @@ npm run start:server
 - `GET /health/auth`
 - `GET /feeds` (requires auth)
 - `POST /feeds` (requires auth)
+- `POST /feeds/intake` (requires auth)
+- `GET /feeds/intake/:jobId` (requires auth)
 - `PATCH /feeds/:id` (requires auth)
 - `DELETE /feeds/:id` (requires auth)
 - `GET /feeds/:id` (requires auth)
