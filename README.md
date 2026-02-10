@@ -625,7 +625,7 @@ npm run smoke
 - 在本地机器执行可获得完整结果。
 
 ## 部署与运维入口
-- 前端：Cloudflare Pages
+- 前端：Cloudflare Workers（OpenNext + Wrangler）
 - 后端：Render Web Service（Root=`server/`）
 - 数据库：Supabase
 - 详细步骤：`docs/deploy.md`

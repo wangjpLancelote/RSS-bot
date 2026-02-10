@@ -1,10 +1,8 @@
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { requirePublicEnv } from "@/lib/publicEnv";
 
 function getFunctionsBase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  }
+  const url = requirePublicEnv("NEXT_PUBLIC_SUPABASE_URL");
   return `${url.replace(/\/$/, "")}/functions/v1`;
 }
 

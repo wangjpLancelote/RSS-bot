@@ -1,11 +1,12 @@
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { readPublicEnv } from "@/lib/publicEnv";
 
 class ApiNetworkError extends Error {
   code = "API_NETWORK_UNREACHABLE";
 }
 
 export function apiBase() {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+  const base = readPublicEnv().NEXT_PUBLIC_API_BASE_URL || "";
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 

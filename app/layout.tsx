@@ -4,6 +4,7 @@ import Image from "next/image";
 import "./globals.css";
 import HeaderAuth from "@/components/HeaderAuth";
 import GlobalLoadingBar from "@/components/GlobalLoadingBar";
+import PublicEnvScript from "@/components/PublicEnvScript";
 import { getSiteUrl } from "@/lib/siteUrl";
 
 const siteUrl = getSiteUrl();
@@ -63,17 +64,18 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body>
+        <PublicEnvScript />
         <GlobalLoadingBar />
         <div className="page">
-          <header className="app-header shrink-0 border-b border-slate-200/70 bg-white/92">
-            <div className="container-app flex items-center justify-between py-4 md:py-5">
+          <header className="bg-white/92 border-slate-200/70 border-b app-header shrink-0">
+            <div className="flex justify-between items-center py-4 md:py-5 container-app">
               <Link className="flex items-center gap-3" href="/">
-                <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <span className="block relative bg-white border border-slate-200 rounded-lg w-10 h-10 overflow-hidden shrink-0">
                   <Image src="/icon.svg" alt="RSS-Bot" fill sizes="40px" priority />
                 </span>
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.24em] text-sky-700/80">RSS-Bot</p>
-                  <h1 className="text-base font-semibold leading-tight text-slate-900 md:text-lg">
+                  <p className="text-sky-700/80 text-xs uppercase tracking-[0.24em]">RSS-Bot</p>
+                  <h1 className="font-semibold text-slate-900 text-base md:text-lg leading-tight">
                     使用AI重塑订阅
                   </h1>
                 </div>
@@ -86,7 +88,7 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <main className="container-app flex-1 min-h-0 overflow-hidden py-6 md:py-8">{children}</main>
+          <main className="flex-1 py-6 md:py-8 min-h-0 overflow-hidden container-app">{children}</main>
         </div>
       </body>
     </html>
