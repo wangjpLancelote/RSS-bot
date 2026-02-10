@@ -69,6 +69,9 @@ type SemanticDecisionResult = {
 const MIN_MEANINGFUL_TEXT_CHARS = 80;
 const FETCH_TIMEOUT_MS = Number(process.env.INTAKE_FETCH_TIMEOUT_MS || 12000);
 const CONVERSION_TIMEOUT_MS = Number(process.env.INTAKE_MAX_CONVERSION_MS || 20000);
+const CONTENT_ENRICH_MIN_CHARS = Number(process.env.CONTENT_ENRICH_MIN_CHARS || 140);
+const CONTENT_ENRICH_MAX_LINKS = Number(process.env.CONTENT_ENRICH_MAX_LINKS || 3);
+const CONTENT_ENRICH_TIMEOUT_MS = Number(process.env.CONTENT_ENRICH_TIMEOUT_MS || 8000);
 
 function safeRequire(name: string): any | null {
   try {
@@ -103,6 +106,13 @@ function sanitizeText(input: string) {
 
 function hasMeaningfulText(input: string) {
   return sanitizeText(input).length >= MIN_MEANINGFUL_TEXT_CHARS;
+}
+
+function candidateBodyLength(candidate: Pick<WebCandidate, "contentText" | "contentMarkdown" | "contentHtml">) {
+  const textLen = sanitizeText(candidate.contentText || "").length;
+  const markdownLen = sanitizeText(candidate.contentMarkdown || "").length;
+  const htmlLen = candidate.contentHtml ? sanitizeText(cheerio.load(candidate.contentHtml).text())?.length : 0;
+  return Math.max(textLen, markdownLen, htmlLen || 0);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, code: string, message: string): Promise<T> {
@@ -343,6 +353,91 @@ function extractCandidates(
   return extractCandidatesWithSelector(rendered, rule || { strategy: "selector" });
 }
 
+async function extractBestCandidateFromUrl(inputUrl: string) {
+  const result = await withTimeout(
+    (async () => {
+      const rendered = await renderPageWithFallback(inputUrl);
+      const partial = extractCandidates(rendered, "partial_preferred");
+      if (partial.length > 0) return partial[0];
+      const full = extractCandidates(rendered, "full_page");
+      return full[0] || null;
+    })(),
+    CONTENT_ENRICH_TIMEOUT_MS,
+    "WEB_MONITOR_RENDER_FAILED",
+    "Detail content enrichment timeout"
+  );
+  return result;
+}
+
+function shouldEnrichCandidate(candidate: WebCandidate, pageUrl: string) {
+  if (!candidate.link) return false;
+  if (candidate.link === pageUrl) return false;
+  return candidateBodyLength(candidate) < CONTENT_ENRICH_MIN_CHARS;
+}
+
+async function enrichCandidatesWithLinkedContent(candidates: WebCandidate[], pageUrl: string) {
+  if (!candidates.length || CONTENT_ENRICH_MAX_LINKS <= 0) {
+    return { candidates, warnings: [] as string[] };
+  }
+
+  const enriched = [...candidates];
+  const warnings: string[] = [];
+  let used = 0;
+  const linkCache = new Map<string, WebCandidate | null>();
+
+  for (let i = 0; i < enriched.length; i += 1) {
+    if (used >= CONTENT_ENRICH_MAX_LINKS) break;
+    const current = enriched[i];
+    if (!shouldEnrichCandidate(current, pageUrl)) continue;
+
+    used += 1;
+    try {
+      const targetLink = current.link || "";
+      const cached = linkCache.get(targetLink);
+      const detail = cached !== undefined ? cached : await extractBestCandidateFromUrl(targetLink);
+      if (cached === undefined) {
+        linkCache.set(targetLink, detail);
+      }
+      if (!detail) {
+        warnings.push("detail_enrich_empty");
+        continue;
+      }
+      const currentLen = candidateBodyLength(current);
+      const detailLen = candidateBodyLength(detail);
+      if (detailLen < CONTENT_ENRICH_MIN_CHARS || detailLen <= currentLen + 24) {
+        continue;
+      }
+
+      enriched[i] = {
+        ...current,
+        title: current.title || detail.title,
+        contentText: detail.contentText,
+        contentMarkdown: detail.contentMarkdown || detail.contentText,
+        contentHtml: detail.contentHtml
+      };
+    } catch {
+      warnings.push("detail_enrich_failed");
+    }
+  }
+
+  return { candidates: enriched, warnings };
+}
+
+export async function extractReadableContentFromUrl(inputUrl: string) {
+  try {
+    const candidate = await extractBestCandidateFromUrl(inputUrl);
+    if (!candidate) return null;
+    return {
+      title: candidate.title,
+      contentText: candidate.contentText,
+      contentMarkdown: candidate.contentMarkdown || null,
+      contentHtml: candidate.contentHtml
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function inferRuleWithLlm(rendered: RenderedPage, candidates: WebCandidate[]): Promise<WebExtractionRule | null> {
   return inferRuleByAdapter({
     url: rendered.url,
@@ -374,7 +469,10 @@ async function runLinearConversion(inputUrl: string): Promise<ConversionResult> 
     };
   }
 
-  const llmRule = await inferRuleWithLlm(rendered, extracted).catch(() => null);
+  const enriched = await enrichCandidatesWithLinkedContent(extracted, rendered.url);
+  warnings.push(...enriched.warnings);
+
+  const llmRule = await inferRuleWithLlm(rendered, enriched.candidates).catch(() => null);
   const rule = llmRule || { strategy: "readability", notes: "heuristic-default" };
 
   return {
@@ -383,7 +481,7 @@ async function runLinearConversion(inputUrl: string): Promise<ConversionResult> 
     description: "Converted from non-RSS page",
     extractionMode: "partial_preferred",
     extractionRule: rule,
-    candidates: extracted,
+    candidates: enriched.candidates,
     warnings
   };
 }
@@ -418,10 +516,12 @@ async function runWithLangGraph(inputUrl: string): Promise<ConversionResult> {
         const rendered: RenderedPage = state.rendered;
         const partial = extractCandidates(rendered, "partial_preferred");
         if (partial.length > 0) {
+          const enriched = await enrichCandidatesWithLinkedContent(partial, rendered.url);
           return {
-            candidates: partial,
+            candidates: enriched.candidates,
             extractionMode: "partial_preferred",
-            extractionRule: { strategy: "readability", notes: "langgraph-partial" } as WebExtractionRule
+            extractionRule: { strategy: "readability", notes: "langgraph-partial" } as WebExtractionRule,
+            warnings: enriched.warnings
           };
         }
         const full = extractCandidates(rendered, "full_page");
@@ -504,11 +604,13 @@ export async function extractCandidatesForRefresh({
   extractionRule?: WebExtractionRule | null;
 }) {
   const rendered = await renderPageWithFallback(url);
-  const candidates = extractCandidates(rendered, extractionMode, extractionRule || undefined);
-  if (candidates.length === 0) {
+  const initialCandidates = extractCandidates(rendered, extractionMode, extractionRule || undefined);
+  if (initialCandidates.length === 0) {
     throw new PipelineError("WEB_MONITOR_EXTRACTION_EMPTY", "No extractable candidates during refresh");
   }
-  return { rendered, candidates };
+  const enriched = await enrichCandidatesWithLinkedContent(initialCandidates, rendered.url);
+  rendered.warnings.push(...enriched.warnings);
+  return { rendered, candidates: enriched.candidates };
 }
 
 export async function semanticDecideNovelty({

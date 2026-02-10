@@ -99,9 +99,12 @@ function SourceBadge({ sourceType }: { sourceType?: string | null }) {
 }
 
 export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
+  type QueueState = "pending" | "running" | "done" | "failed";
   const [feeds, setFeeds] = useState<Feed[]>(initialFeeds);
   const router = useRouter();
   const [busyAll, setBusyAll] = useState(false);
+  const [refreshQueueById, setRefreshQueueById] = useState<Record<string, QueueState | undefined>>({});
+  const [refreshQueueErrorById, setRefreshQueueErrorById] = useState<Record<string, string | undefined>>({});
   const [busyById, setBusyById] = useState<Record<string, "delete" | undefined>>({});
   const [removingIds, setRemovingIds] = useState<Record<string, true | undefined>>({});
   const [error, setError] = useState<string | null>(null);
@@ -160,16 +163,64 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
   }, [feeds]);
 
   const refreshAll = async () => {
+    const queueIds = sortedFeeds.map((feed) => feed.id);
+    if (queueIds.length === 0) return;
+    const queueConcurrency = Math.min(3, queueIds.length);
+
     setBusyAll(true);
     setError(null);
+    setRefreshQueueErrorById({});
+    setRefreshQueueById(
+      queueIds.reduce<Record<string, QueueState>>((acc, id) => {
+        acc[id] = "pending";
+        return acc;
+      }, {})
+    );
+
+    let failedCount = 0;
     try {
-      const res = await authFetch("/refresh", {
-        method: "POST",
-        body: JSON.stringify({})
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(apiErrorMessage(data, "刷新全部失败"));
+      let cursor = 0;
+
+      const runOne = async (feedId: string) => {
+        setRefreshQueueById((prev) => ({ ...prev, [feedId]: "running" }));
+        try {
+          const res = await authFetch(
+            `/feeds/${feedId}/refresh`,
+            {
+              method: "POST",
+              body: JSON.stringify({})
+            },
+            { silentLoading: true }
+          );
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(apiErrorMessage(data, "刷新订阅失败"));
+          }
+          setRefreshQueueById((prev) => ({ ...prev, [feedId]: "done" }));
+        } catch (err) {
+          failedCount += 1;
+          const message = err instanceof Error ? err.message : "刷新订阅失败";
+          setRefreshQueueById((prev) => ({ ...prev, [feedId]: "failed" }));
+          setRefreshQueueErrorById((prev) => ({ ...prev, [feedId]: message }));
+        }
+      };
+
+      const worker = async () => {
+        while (true) {
+          const index = cursor;
+          cursor += 1;
+          if (index >= queueIds.length) {
+            break;
+          }
+          const feedId = queueIds[index];
+          await runOne(feedId);
+        }
+      };
+
+      await Promise.all(Array.from({ length: queueConcurrency }, () => worker()));
+
+      if (failedCount > 0) {
+        setError(`全量刷新完成，${failedCount} 个订阅刷新失败`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新全部失败");
@@ -332,8 +383,11 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
             {sortedFeeds.map((feed) => {
               const op = busyById[feed.id];
               const isRemoving = Boolean(removingIds[feed.id]);
-              const isBusy = Boolean(op) || busyAll;
+              const queueState = refreshQueueById[feed.id];
+              const isQueueLocked = busyAll && queueState !== "done" && queueState !== "failed";
+              const isBusy = Boolean(op) || isQueueLocked;
               const isSelected = manageMode && selectedId === feed.id;
+              const queueError = refreshQueueErrorById[feed.id];
 
               return (
                 <div
@@ -351,6 +405,7 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                       className="block w-full cursor-pointer text-left"
                       onClick={() => setSelectedId(feed.id)}
                       aria-pressed={isSelected}
+                      disabled={isBusy}
                     >
                       <div className={["-m-2 flex items-start justify-between gap-3 rounded-lg p-2", isSelected ? "bg-blue-50/50" : ""].join(" ")}>
                         <div className="min-w-0 flex-1">
@@ -376,23 +431,43 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                       </div>
                     </button>
                   ) : (
-                    <Link href={`/feeds/${feed.id}`} className="block">
-                      <div className="flex items-start justify-between gap-3 rounded-lg">
-                        <div className="min-w-0 flex-1">
-                          <p className="wrap-break-word whitespace-normal font-semibold leading-snug hover:underline">
-                            {feed.title || feed.url}
-                          </p>
-                          <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
-                          {feed.source_type === "web_monitor" && feed.source_url ? (
-                            <p className="mt-1 whitespace-normal break-all text-xs text-amber-700">来源: {feed.source_url}</p>
-                          ) : null}
-                        </div>
-                        <div className="shrink-0 flex items-center gap-2">
-                          <SourceBadge sourceType={feed.source_type} />
-                          <StatusBadge status={feed.status} />
+                    isBusy ? (
+                      <div className="block cursor-not-allowed">
+                        <div className="flex items-start justify-between gap-3 rounded-lg">
+                          <div className="min-w-0 flex-1">
+                            <p className="wrap-break-word whitespace-normal font-semibold leading-snug">
+                              {feed.title || feed.url}
+                            </p>
+                            <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                            {feed.source_type === "web_monitor" && feed.source_url ? (
+                              <p className="mt-1 whitespace-normal break-all text-xs text-amber-700">来源: {feed.source_url}</p>
+                            ) : null}
+                          </div>
+                          <div className="shrink-0 flex items-center gap-2">
+                            <SourceBadge sourceType={feed.source_type} />
+                            <StatusBadge status={feed.status} />
+                          </div>
                         </div>
                       </div>
-                    </Link>
+                    ) : (
+                      <Link href={`/feeds/${feed.id}`} className="block">
+                        <div className="flex items-start justify-between gap-3 rounded-lg">
+                          <div className="min-w-0 flex-1">
+                            <p className="wrap-break-word whitespace-normal font-semibold leading-snug hover:underline">
+                              {feed.title || feed.url}
+                            </p>
+                            <p className="mt-1 whitespace-normal break-all text-xs text-gray-500">{feed.url}</p>
+                            {feed.source_type === "web_monitor" && feed.source_url ? (
+                              <p className="mt-1 whitespace-normal break-all text-xs text-amber-700">来源: {feed.source_url}</p>
+                            ) : null}
+                          </div>
+                          <div className="shrink-0 flex items-center gap-2">
+                            <SourceBadge sourceType={feed.source_type} />
+                            <StatusBadge status={feed.status} />
+                          </div>
+                        </div>
+                      </Link>
+                    )
                   )}
 
                   <div className="mt-4 space-y-2 text-sm text-gray-700">
@@ -405,6 +480,15 @@ export default function FeedList({ initialFeeds }: { initialFeeds: Feed[] }) {
                     </p>
                     {feed.last_error ? (
                       <p className="wrap-break-word whitespace-normal text-xs text-red-600">{feed.last_error}</p>
+                    ) : null}
+                    {busyAll && queueState !== "done" && queueState !== "failed" ? (
+                      <p className="inline-flex items-center gap-2 whitespace-normal text-xs text-blue-700">
+                        <IconRefresh className={["h-3.5 w-3.5", queueState === "running" ? "animate-spin" : ""].join(" ")} />
+                        抓取信息中
+                      </p>
+                    ) : null}
+                    {busyAll && queueState === "failed" && queueError ? (
+                      <p className="wrap-break-word whitespace-normal text-xs text-red-600">{queueError}</p>
                     ) : null}
                     {feed.source_type === "web_monitor" ? (
                       <p className="wrap-break-word whitespace-normal text-xs text-gray-500">

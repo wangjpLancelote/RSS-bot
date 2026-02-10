@@ -46,3 +46,6 @@ npm run start:server
 - `POST /feeds/:id/refresh` (requires auth)
 - `POST /refresh` (requires auth)
 - `POST /cron/refresh` (optional secret)
+
+## 服务层链路文档
+- `server/src/services/README.md`

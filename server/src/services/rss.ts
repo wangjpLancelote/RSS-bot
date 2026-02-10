@@ -1,8 +1,10 @@
 import Parser from "rss-parser";
+import * as cheerio from "cheerio";
 import { serviceClient } from "./supabase";
 import { DEFAULT_HEADERS } from "../utils/constants";
 import {
   candidateContentHash,
+  extractReadableContentFromUrl,
   extractCandidatesForRefresh,
   semanticDecideNovelty,
   type LlmDecision
@@ -13,6 +15,8 @@ const parser: Parser = new Parser({
     item: ["content:encoded", "content"]
   }
 });
+const RSS_CONTENT_MIN_CHARS = Number(process.env.RSS_CONTENT_MIN_CHARS || 120);
+const RSS_ENRICH_MAX_ITEMS = Number(process.env.RSS_ENRICH_MAX_ITEMS || 3);
 
 type FeedSourceType = "rss" | "web_monitor";
 
@@ -53,17 +57,72 @@ type FeedItemRow = {
 function toItemRow(feedId: string, item: Parser.Item): FeedItemRow {
   const contentEncoded = (item as any)["content:encoded"] as string | undefined;
   const content = (item as any).content as string | undefined;
+  const contentHtml = contentEncoded ?? content ?? item.summary ?? null;
+  const snippet = item.contentSnippet ?? null;
+  const textFromHtml = contentHtml ? cheerio.load(contentHtml).text().replace(/\s+/g, " ").trim() : "";
+  const mergedText = (snippet || textFromHtml || "").trim();
   return {
     feed_id: feedId,
     guid: normalizeGuid(item),
     title: item.title ?? null,
     link: item.link ?? null,
     author: (item as any).creator ?? (item as any).author ?? null,
-    content_html: contentEncoded ?? content ?? item.summary ?? null,
-    content_text: item.contentSnippet ?? null,
+    content_html: contentHtml,
+    content_text: mergedText || null,
     published_at: item.isoDate ? new Date(item.isoDate).toISOString() : null,
     fetched_at: new Date().toISOString()
   };
+}
+
+function itemBodyLength(item: Pick<FeedItemRow, "content_text" | "content_html">) {
+  const textLen = (item.content_text || "").replace(/\s+/g, " ").trim().length;
+  const htmlLen = item.content_html ? cheerio.load(item.content_html).text().replace(/\s+/g, " ").trim().length : 0;
+  return Math.max(textLen, htmlLen);
+}
+
+async function enrichRssItemsBody(items: FeedItemRow[]) {
+  if (!items.length || RSS_ENRICH_MAX_ITEMS <= 0) return;
+
+  let used = 0;
+  for (const item of items) {
+    if (used >= RSS_ENRICH_MAX_ITEMS) break;
+    if (!item.link) continue;
+    if (itemBodyLength(item) >= RSS_CONTENT_MIN_CHARS) continue;
+
+    used += 1;
+    const detail = await extractReadableContentFromUrl(item.link).catch(() => null);
+    if (!detail) continue;
+
+    const detailText = (detail.contentMarkdown || detail.contentText || "").replace(/\s+/g, " ").trim();
+    if (detailText.length < RSS_CONTENT_MIN_CHARS) continue;
+
+    item.content_html = detail.contentHtml || item.content_html;
+    item.content_text = detailText || item.content_text;
+    item.title = item.title || detail.title;
+  }
+}
+
+async function backfillExistingRssItems(feedId: string, items: FeedItemRow[]) {
+  const weakItems = items.filter((item) => itemBodyLength(item) < RSS_CONTENT_MIN_CHARS).slice(0, RSS_ENRICH_MAX_ITEMS);
+  if (!weakItems.length) return;
+
+  await enrichRssItemsBody(weakItems);
+  const updates = weakItems.filter((item) => itemBodyLength(item) >= RSS_CONTENT_MIN_CHARS);
+  if (!updates.length) return;
+
+  await Promise.all(
+    updates.map((item) =>
+      serviceClient
+        .from("feed_items")
+        .update({
+          title: item.title,
+          content_html: item.content_html,
+          content_text: item.content_text
+        })
+        .eq("feed_id", feedId)
+        .eq("guid", item.guid)
+    )
+  );
 }
 
 function normalizeCandidateKey(candidate: { key: string; link: string | null; title: string | null }) {
@@ -152,6 +211,17 @@ async function fetchAndStoreRssFeed(feed: FeedRow) {
     });
 
     if (itemsToInsert.length > 0) {
+      const guids = itemsToInsert.map((item) => item.guid);
+      const { data: existingGuidRows } = await serviceClient
+        .from("feed_items")
+        .select("guid")
+        .eq("feed_id", feedId)
+        .in("guid", guids);
+      const existingGuids = new Set((existingGuidRows || []).map((row) => String((row as any).guid)));
+      const newItems = itemsToInsert.filter((item) => !existingGuids.has(item.guid));
+      const existingItems = itemsToInsert.filter((item) => existingGuids.has(item.guid));
+      await enrichRssItemsBody(newItems);
+      await backfillExistingRssItems(feedId, existingItems);
       await serviceClient.from("feed_items").upsert(itemsToInsert, { onConflict: "feed_id,guid", ignoreDuplicates: true });
     }
 
