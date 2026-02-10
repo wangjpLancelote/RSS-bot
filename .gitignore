@@ -3,10 +3,10 @@ node_modules
 out
 .open-next
 .wrangler
-.dev.vars
 .env.wrangler
 server/dist
 .env
+.env.production
 .env.local
 .env.development.local
 .env.production.local

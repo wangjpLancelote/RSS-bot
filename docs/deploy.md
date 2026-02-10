@@ -16,46 +16,47 @@
 ### 前端部署图
 ```mermaid
 flowchart TD
-  A[".env"] --> B["npm run wrangler:env"]
-  B --> C[".dev.vars / .env.wrangler"]
-  C --> D["npm run build:cf"]
-  D --> E["OpenNext Build"]
-  E --> F[".open-next/worker.js"]
-  E --> G[".open-next/assets"]
-  F --> H["wrangler deploy --env-file .env.wrangler"]
-  G --> H
+  A["npm run dev"] --> B["Next dev"]
+  C[".env"] --> B
+
+  D["npm run build:cf / preview:cf / deploy:cf"] --> E["读取 .env.production"]
+  E --> F["生成 .env.wrangler"]
+  F --> G["OpenNext Build"]
+  G --> H["wrangler dev/deploy --env-file .env.wrangler"]
   H --> I["Cloudflare Worker"]
-  I --> J["Browser Request"]
-  I --> K["Render API"]
-  I --> L["Supabase"]
+  I --> J["Render API"]
+  I --> K["Supabase"]
 ```
 
 ### 前端部署所需库
 - `next`：Next.js 应用框架，提供构建与 SSR/路由能力。
 - `react`、`react-dom`：前端运行时基础依赖。
 - `@opennextjs/cloudflare`：将 Next.js 构建产物转换为 Cloudflare Worker 可部署结构。
-- `wrangler`（CLI）：本地预览与部署到 Cloudflare Workers。当前脚本使用 `npx wrangler@latest`，无需固定本地版本。
-- `dotenv`：用于 `scripts/sync-wrangler-env.mjs`，把 `.env` 同步到 `.dev.vars` 和 `.env.wrangler`。
+- `wrangler`（CLI）：本地预览与部署到 Cloudflare Workers（来自项目 devDependencies）。
+- `dotenv`：用于 `scripts/sync-wrangler-env.mjs` / `scripts/build-cf.mjs`，按环境读取 `.env` 或 `.env.production`。
 
 ### 本地与发布命令
-- 同步 `.env` 到 Wrangler 可读文件（`.dev.vars` / `.env.wrangler`）：
-  - `npm run wrangler:env`
-- 构建 Worker：
+- 开发（仅使用 `.env`）：
+  - `npm run dev`
+- 构建 Worker（使用 `.env.production`）：
   - `npm run build:cf`
-- 本地预览：
+- 本地预览 Worker（自动同步 `.env.production` -> `.env.wrangler`）：
   - `npm run preview:cf`
-- 发布到 Cloudflare Workers：
+- 发布到 Cloudflare Workers（自动同步 `.env.production` -> `.env.wrangler`）：
   - `npm run deploy:cf`
 
 ### 首次发布前准备
 - 登录 Cloudflare：
-  - `npx wrangler@latest login`
+  - `npx wrangler login`
 - 按需修改 `wrangler.toml` 中的 `name`。
 
 ### 前端需要的环境变量
-默认会从 `.env` 选择并同步 `NEXT_PUBLIC_*` 到 `.dev.vars` 和 `.env.wrangler`。
+env 读取规则：
+- `npm run dev`：使用 `.env`
+- `npm run build:cf`：使用 `.env.production`
+- `npm run preview:cf` / `npm run deploy:cf`：先同步 `.env.production` 到 `.env.wrangler`，再构建并执行 wrangler
 
-在 `.env` 中至少需要：
+在 `.env` 与 `.env.production` 中至少需要：
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_API_BASE_URL`（指向 Render 后端 URL）

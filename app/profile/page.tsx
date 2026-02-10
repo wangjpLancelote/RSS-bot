@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { logoutWithEdge } from "@/lib/supabase/functions";
 import { getCachedProfile, setCachedProfile } from "@/lib/stores/profileStore";
+
+type SignOutStatus = "idle" | "submitting" | "success" | "error";
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 export default function ProfilePage() {
   const { session } = useSession();
@@ -12,6 +23,9 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string | null>(session?.user?.email ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [signOutStatus, setSignOutStatus] = useState<SignOutStatus>("idle");
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +85,39 @@ export default function ProfilePage() {
     };
   }, [session?.user?.email, userId]);
 
+  const handleSignOut = async () => {
+    if (signOutStatus === "submitting" || signOutStatus === "success") {
+      return;
+    }
+
+    setSignOutStatus("submitting");
+    setSignOutError(null);
+
+    try {
+      await logoutWithEdge();
+      const supabase = getBrowserClient();
+      await supabase.auth.signOut({ scope: "local" });
+      setSignOutStatus("success");
+      await wait(320);
+      router.replace("/login?from=logout");
+    } catch (err) {
+      setSignOutStatus("error");
+      setSignOutError(err instanceof Error ? err.message : "退出失败，请重试");
+    }
+  };
+
+  const signOutLabel =
+    signOutStatus === "submitting"
+      ? "退出中..."
+      : signOutStatus === "success"
+        ? "已安全退出"
+        : signOutStatus === "error"
+          ? "重试退出"
+          : "退出登录";
+
+  const signOutVariant =
+    signOutStatus === "success" ? "btn-success" : signOutStatus === "error" ? "btn-danger" : "btn-auth-logout";
+
   return (
     <AuthGate>
       <section className="h-full min-h-0 overflow-auto pr-1">
@@ -96,6 +143,25 @@ export default function ProfilePage() {
                 </div>
               </>
             )}
+          </div>
+          <div className="card auth-logout-card space-y-4 p-6">
+            <div className="auth-brand">
+              <span className="auth-brand-icon">
+                <Image src="/icon.svg" alt="RSS-Bot" fill sizes="44px" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold">安全退出</h3>
+                <p className="mt-1 text-sm text-gray-600">退出当前设备会话，并返回登录页。</p>
+              </div>
+            </div>
+            {signOutError ? <p className="text-sm text-red-600">{signOutError}</p> : null}
+            <button
+              className={`btn btn-auth-cta ${signOutVariant}`}
+              onClick={handleSignOut}
+              disabled={signOutStatus === "submitting" || signOutStatus === "success"}
+            >
+              {signOutLabel}
+            </button>
           </div>
         </div>
       </section>

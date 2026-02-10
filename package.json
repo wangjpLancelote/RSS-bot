@@ -20,10 +20,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
-    "wrangler:env": "node scripts/sync-wrangler-env.mjs",
-    "build:cf": "npm run wrangler:env && npx @opennextjs/cloudflare@latest build",
-    "preview:cf": "npm run build:cf && npx wrangler@latest dev --env-file .env.wrangler",
-    "deploy:cf": "npm run build:cf && npx wrangler@latest deploy --env-file .env.wrangler"
+    "build:cf": "node scripts/build-cf.mjs",
+    "preview:cf": "node scripts/sync-wrangler-env.mjs --source .env.production --out .env.wrangler && npm run build:cf && wrangler dev --env-file .env.wrangler",
+    "deploy:cf": "node scripts/sync-wrangler-env.mjs --source .env.production --out .env.wrangler && npm run build:cf && wrangler deploy --env-file .env.wrangler"
   },
   "dependencies": {
     "@langchain/langgraph": "^0.2.55",

@@ -1,57 +1,71 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase/browser";
 import { loginWithEdge } from "@/lib/supabase/functions";
 
+type SubmitStatus = "idle" | "submitting" | "success" | "error";
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export default function LoginPage() {
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const router = useRouter();
+  const isTransitioning = submitStatus === "submitting" || submitStatus === "success";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoading(true);
-    setError(null);
+    if (isTransitioning) {
+      return;
+    }
+    setSubmitStatus("submitting");
+    setFeedback(null);
 
     try {
-      const supabase = getBrowserClient();
-
-      if (mode === "sign-up") {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password
-        });
-
-        if (signUpError) {
-          throw signUpError;
-        }
-
-        setError("注册成功，请检查邮箱完成验证后登录。");
-      } else {
-        await loginWithEdge(email, password);
-
-        router.push("/");
-      }
+      await loginWithEdge(email, password);
+      setSubmitStatus("success");
+      setFeedback({ type: "success", message: "登录成功，正在进入首页..." });
+      await wait(380);
+      router.replace("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
-    } finally {
-      setLoading(false);
+      setSubmitStatus("error");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "登录失败" });
     }
   };
 
+  const submitVariantClass =
+    submitStatus === "success" ? "btn-success" : submitStatus === "error" ? "btn-danger" : "btn-primary";
+  const submitLabel =
+    submitStatus === "submitting"
+      ? "处理中..."
+      : submitStatus === "success"
+        ? "登录成功"
+        : "登录";
+
   return (
-    <section className="h-full min-h-0 overflow-auto pr-1">
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold">{mode === "sign-in" ? "登录" : "注册"}</h2>
-          <p className="mt-1 text-sm text-gray-600">使用邮箱与密码进行认证。</p>
+    <section className="auth-shell h-full min-h-0 overflow-auto pr-1">
+      <div className="auth-stack mx-auto w-full max-w-6xl space-y-6">
+        <div className="card auth-intro-card p-7 md:p-10">
+          <div className="auth-brand">
+            <span className="auth-brand-icon">
+              <Image src="/icon.svg" alt="RSS-Bot" fill sizes="44px" priority />
+            </span>
+            <div>
+              <p className="auth-brand-eyebrow">RSS-Bot</p>
+              <h2 className="text-lg font-semibold md:text-2xl">登录你的账号</h2>
+              <p className="auth-brand-slogan">使用AI重塑订阅</p>
+            </div>
+          </div>
         </div>
-        <div className="card p-6">
+        <div className="card auth-form-card p-7 md:p-10">
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="text-sm font-medium">邮箱</label>
@@ -60,6 +74,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                disabled={isTransitioning}
                 required
               />
             </div>
@@ -70,20 +85,18 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                disabled={isTransitioning}
                 required
               />
             </div>
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            <div className="flex gap-3">
-              <button className="btn btn-primary" type="submit" disabled={loading}>
-                {loading ? "处理中..." : mode === "sign-in" ? "登录" : "注册"}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
-              >
-                {mode === "sign-in" ? "去注册" : "去登录"}
+            {feedback ? (
+              <p className={`auth-feedback ${feedback.type === "error" ? "auth-feedback--error" : "auth-feedback--success"}`}>
+                {feedback.message}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-3 sm:items-start">
+              <button className={`btn btn-auth-cta ${submitVariantClass}`} type="submit" disabled={isTransitioning}>
+                {submitLabel}
               </button>
             </div>
           </form>
