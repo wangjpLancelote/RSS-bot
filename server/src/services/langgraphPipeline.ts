@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import { DEFAULT_HEADERS } from "../utils/constants";
 import { inferRuleByAdapter, semanticDecideByAdapter } from "./llmAdapter";
+import { cleanHtmlForReading, cleanTextForReading } from "./contentCleaner";
 
 export type FeedSourceType = "rss" | "web_monitor";
 export type LlmDecision = "new" | "minor_update" | "noise";
@@ -101,7 +102,7 @@ function toAbsoluteUrl(href: string | null | undefined, baseUrl: string) {
 }
 
 function sanitizeText(input: string) {
-  return normalizeSpace(input).slice(0, 24000);
+  return cleanTextForReading(input).slice(0, 24000);
 }
 
 function hasMeaningfulText(input: string) {
@@ -247,11 +248,12 @@ function extractCandidatesWithReadability(rendered: RenderedPage): WebCandidate[
       return [];
     }
 
-    const text = sanitizeText(article.textContent);
+    const cleaned = cleanHtmlForReading(typeof article.content === "string" ? article.content : null);
+    const text = sanitizeText(cleaned.contentText || article.textContent || "");
     if (!hasMeaningfulText(text)) {
       return [];
     }
-    const html = typeof article.content === "string" ? article.content : null;
+    const html = cleaned.contentHtml;
     const markdown = toMarkdown(html);
     const key = toHash(`${rendered.url}:${article.title || ""}:${text.slice(0, 280)}`);
 
@@ -291,8 +293,9 @@ function extractCandidatesWithSelector(rendered: RenderedPage, rule: WebExtracti
         const link = toAbsoluteUrl($(el).find(linkSelector).first().attr("href"), rendered.url);
         const publishedAtRaw = normalizeSpace($(el).find(timeSelector).first().attr("datetime") || "");
         const publishedAt = publishedAtRaw || null;
-        const text = sanitizeText($(el).text());
-        const html = $.html(el) || null;
+        const cleaned = cleanHtmlForReading($.html(el) || null);
+        const text = sanitizeText(cleaned.contentText || $(el).text());
+        const html = cleaned.contentHtml;
         if (!hasMeaningfulText(text)) return;
         const markdown = toMarkdown(html);
         const key = toHash(`${rendered.url}:${index}:${link || ""}:${title || ""}:${text.slice(0, 200)}`);
@@ -310,9 +313,11 @@ function extractCandidatesWithSelector(rendered: RenderedPage, rule: WebExtracti
 
   if (candidates.length > 0) return candidates;
 
-  const fallbackText = sanitizeText($("main, article, body").first().text());
+  const fallbackNode = $("main, article, body").first();
+  const fallbackCleaned = cleanHtmlForReading($.html(fallbackNode) || fallbackNode.html() || null);
+  const fallbackText = sanitizeText(fallbackCleaned.contentText || fallbackNode.text());
   if (!hasMeaningfulText(fallbackText)) return [];
-  const fallbackHtml = $("main, article, body").first().html() || null;
+  const fallbackHtml = fallbackCleaned.contentHtml;
 
   return [
     {
@@ -333,7 +338,9 @@ function extractCandidates(
   rule?: WebExtractionRule | null
 ): WebCandidate[] {
   if (mode === "full_page") {
-    const text = sanitizeText(cheerio.load(rendered.html)("body").text());
+    const fullPage = cheerio.load(rendered.html);
+    const cleaned = cleanHtmlForReading(fullPage("body").html() || rendered.html);
+    const text = sanitizeText(cleaned.contentText);
     if (!hasMeaningfulText(text)) return [];
     return [
       {
@@ -342,8 +349,8 @@ function extractCandidates(
         link: rendered.url,
         publishedAt: null,
         contentText: text,
-        contentMarkdown: toMarkdown(rendered.html),
-        contentHtml: rendered.html
+        contentMarkdown: toMarkdown(cleaned.contentHtml),
+        contentHtml: cleaned.contentHtml
       }
     ];
   }

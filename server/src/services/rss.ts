@@ -9,6 +9,7 @@ import {
   semanticDecideNovelty,
   type LlmDecision
 } from "./langgraphPipeline";
+import { cleanHtmlForReading, cleanTextForReading } from "./contentCleaner";
 
 const parser: Parser = new Parser({
   customFields: {
@@ -59,15 +60,16 @@ function toItemRow(feedId: string, item: Parser.Item): FeedItemRow {
   const content = (item as any).content as string | undefined;
   const contentHtml = contentEncoded ?? content ?? item.summary ?? null;
   const snippet = item.contentSnippet ?? null;
-  const textFromHtml = contentHtml ? cheerio.load(contentHtml).text().replace(/\s+/g, " ").trim() : "";
-  const mergedText = (snippet || textFromHtml || "").trim();
+  const cleaned = cleanHtmlForReading(contentHtml);
+  const textFromHtml = cleaned.contentText;
+  const mergedText = cleanTextForReading(snippet || textFromHtml || "");
   return {
     feed_id: feedId,
     guid: normalizeGuid(item),
     title: item.title ?? null,
     link: item.link ?? null,
     author: (item as any).creator ?? (item as any).author ?? null,
-    content_html: contentHtml,
+    content_html: cleaned.contentHtml,
     content_text: mergedText || null,
     published_at: item.isoDate ? new Date(item.isoDate).toISOString() : null,
     fetched_at: new Date().toISOString()
@@ -93,10 +95,11 @@ async function enrichRssItemsBody(items: FeedItemRow[]) {
     const detail = await extractReadableContentFromUrl(item.link).catch(() => null);
     if (!detail) continue;
 
-    const detailText = (detail.contentMarkdown || detail.contentText || "").replace(/\s+/g, " ").trim();
+    const detailCleaned = cleanHtmlForReading(detail.contentHtml || null);
+    const detailText = cleanTextForReading(detail.contentMarkdown || detail.contentText || detailCleaned.contentText || "");
     if (detailText.length < RSS_CONTENT_MIN_CHARS) continue;
 
-    item.content_html = detail.contentHtml || item.content_html;
+    item.content_html = detailCleaned.contentHtml || item.content_html;
     item.content_text = detailText || item.content_text;
     item.title = item.title || detail.title;
   }
@@ -324,7 +327,7 @@ async function fetchAndStoreWebMonitorFeed(feed: FeedRow) {
           link: candidate.link,
           author: null,
           content_html: candidate.contentHtml,
-          content_text: candidate.contentMarkdown || candidate.contentText,
+          content_text: cleanTextForReading(candidate.contentMarkdown || candidate.contentText),
           published_at: candidate.publishedAt,
           fetched_at: new Date().toISOString()
         });

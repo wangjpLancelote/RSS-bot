@@ -13,6 +13,105 @@ import { apiErrorMessage, authFetch } from "@/lib/api";
 import AuthGate from "@/components/AuthGate";
 import useSession from "@/lib/hooks/useSession";
 
+const NON_MAIN_ATTR_RE =
+  /\b(comment|reply|reaction|like|share|social|login|signin|signup|register|auth|subscribe|newsletter|related|recommend|sidebar|widget|toolbar|menu|pager|pagination|footer|advert|promo|评论|回复|点赞|分享|登录|注册|关注|推荐)\b/i;
+const NON_MAIN_TEXT_RE =
+  /\b(comment|comments|reply|replies|like|likes|share|shares|sign in|log in|login|register|subscribe|newsletter)\b|评论|回复|点赞|分享|登录|注册|关注|相关阅读|推荐阅读/i;
+const NON_MAIN_HREF_RE = /\/(comment|reply|login|signin|signup|register|share|social)\b/i;
+
+function normalizeText(input: string | null | undefined) {
+  return (input || "").replace(/\s+/g, " ").trim();
+}
+
+function textLinkDensity(el: Element) {
+  const total = normalizeText(el.textContent).length;
+  if (!total) return 0;
+  const links = normalizeText(Array.from(el.querySelectorAll("a")).map((node) => node.textContent || "").join(" ")).length;
+  return links / total;
+}
+
+function isLikelyNonMainText(text: string) {
+  const normalized = normalizeText(text);
+  if (!normalized) return false;
+  if (normalized.length <= 140 && NON_MAIN_TEXT_RE.test(normalized)) return true;
+  if (normalized.length <= 40 && NON_MAIN_ATTR_RE.test(normalized)) return true;
+  return false;
+}
+
+function sanitizeArticleHtml(input: string) {
+  if (typeof window === "undefined") {
+    return { html: input, nonMainText: [] as string[] };
+  }
+
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(input, "text/html");
+  const removed = new Set<string>();
+
+  const collectRemoved = (el: Element) => {
+    if (removed.size >= 10) return;
+    const text = normalizeText(el.textContent);
+    if (text) removed.add(text.slice(0, 160));
+  };
+
+  doc.querySelectorAll("script,style,iframe,object,embed,link,meta,noscript,template,svg,canvas").forEach((node) => {
+    collectRemoved(node as Element);
+    node.remove();
+  });
+
+  doc.querySelectorAll("aside,nav,footer,form,[role='navigation'],[role='complementary']").forEach((node) => {
+    collectRemoved(node as Element);
+    node.remove();
+  });
+
+  const all = Array.from(doc.body.querySelectorAll("*")).reverse();
+  all.forEach((el) => {
+    if (!el.isConnected) return;
+
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+        el.removeAttribute(attr.name);
+      }
+    });
+
+    const tag = el.tagName.toLowerCase();
+    if (tag === "body" || tag === "html") return;
+
+    const text = normalizeText(el.textContent);
+    if ((tag === "main" || tag === "article") && text.length > 400) return;
+
+    const attrSignal = [
+      el.getAttribute("id") || "",
+      el.getAttribute("class") || "",
+      el.getAttribute("role") || "",
+      el.getAttribute("aria-label") || "",
+      el.getAttribute("data-testid") || ""
+    ].join(" ");
+    const href = el.getAttribute("href") || "";
+    const density = textLinkDensity(el);
+
+    const dropByAttr = NON_MAIN_ATTR_RE.test(attrSignal) && (text.length < 1200 || density > 0.6);
+    const dropByText = isLikelyNonMainText(text);
+    const dropByHref = tag === "a" && NON_MAIN_HREF_RE.test(href) && text.length <= 80;
+    const dropByLinks = density > 0.75 && text.length <= 400 && !el.querySelector("p,article,main");
+
+    if (dropByAttr || dropByText || dropByHref || dropByLinks) {
+      collectRemoved(el);
+      el.remove();
+    }
+  });
+
+  return {
+    html: doc.body.innerHTML.trim(),
+    nonMainText: Array.from(removed)
+  };
+}
+
 function IconZen({ className = "" }: { className?: string }) {
   return (
     <svg
@@ -30,30 +129,6 @@ function IconZen({ className = "" }: { className?: string }) {
       <path d="M4 17h8" />
     </svg>
   );
-}
-
-function sanitizeHtml(input: string) {
-  if (typeof window === "undefined") return input;
-  const parser = new window.DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-
-  doc.querySelectorAll("script,style,iframe,object,embed,link,meta").forEach((node) => node.remove());
-
-  doc.querySelectorAll("*").forEach((el) => {
-    Array.from(el.attributes).forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      const value = attr.value.trim().toLowerCase();
-      if (name.startsWith("on")) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-
-  return doc.body.innerHTML.trim();
 }
 
 export default function FeedDetailPage() {
@@ -148,16 +223,23 @@ export default function FeedDetailPage() {
     return items.find((item) => item.id === selectedItemId) || null;
   }, [items, selectedItemId]);
 
+  const cleanedOriginal = useMemo(() => {
+    if (!selectedItem?.content_html) {
+      return { html: "", nonMainText: [] as string[] };
+    }
+    return sanitizeArticleHtml(selectedItem.content_html);
+  }, [selectedItem?.content_html]);
+
   const markdown = useMemo(() => {
     if (!selectedItem) return "";
     const turndown = new TurndownService({ codeBlockStyle: "fenced" });
-    const html = selectedItem.content_html || "";
+    const html = cleanedOriginal.html || "";
     return html ? turndown.turndown(html) : selectedItem.content_text || "";
-  }, [selectedItem]);
+  }, [cleanedOriginal.html, selectedItem]);
   const sanitizedOriginalHtml = useMemo(() => {
-    if (!selectedItem?.content_html) return "";
-    return sanitizeHtml(selectedItem.content_html);
-  }, [selectedItem?.content_html]);
+    return cleanedOriginal.html;
+  }, [cleanedOriginal.html]);
+  const nonMainText = cleanedOriginal.nonMainText;
   const shouldUseOriginalContent = useMemo(() => {
     if (!selectedItem) return false;
     const hasMarkdown = markdown.trim().length > 0;
@@ -326,10 +408,10 @@ export default function FeedDetailPage() {
                     ) : null}
                   </div>
                   <div ref={readerScrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="prose prose-pre:overflow-x-auto prose-code:break-words max-w-none break-words">
+                    <div className="prose prose-pre:overflow-x-auto prose-code:break-words max-w-none break-words text-[16px] leading-8 text-slate-900 prose-headings:text-slate-950 prose-p:text-slate-900 prose-strong:text-slate-950 prose-a:text-blue-700 prose-li:text-slate-900">
                       {shouldUseOriginalContent ? (
                         <div className="space-y-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-gray-500">原文内容</p>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">正文内容</p>
                           <div dangerouslySetInnerHTML={{ __html: sanitizedOriginalHtml }} />
                         </div>
                       ) : markdown ? (
@@ -337,6 +419,20 @@ export default function FeedDetailPage() {
                       ) : (
                         <p>暂无内容。</p>
                       )}
+                      {nonMainText.length > 0 ? (
+                        <details className="not-prose mt-8 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                          <summary className="cursor-pointer text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                            非正文信息（已折叠）
+                          </summary>
+                          <div className="mt-3 space-y-2 border-l-2 border-slate-200 pl-3 text-[12px] leading-5 text-slate-500">
+                            {nonMainText.map((line, idx) => (
+                              <p key={`${idx}-${line.slice(0, 24)}`} className="font-normal italic">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        </details>
+                      ) : null}
                     </div>
                   </div>
                 </div>

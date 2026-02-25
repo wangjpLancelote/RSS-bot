@@ -7,6 +7,7 @@ import {
   type WebCandidate
 } from "./langgraphPipeline";
 import { fetchAndStoreByType } from "./rss";
+import { cleanTextForReading } from "./contentCleaner";
 
 type IntakeStatus = "pending" | "running" | "done" | "failed";
 type IntakeStage = "detecting" | "converting" | "validating" | "creating" | "done" | "failed";
@@ -81,7 +82,7 @@ function toFeedItems(feedId: string, candidates: WebCandidate[]) {
       link: candidate.link,
       author: null,
       content_html: candidate.contentHtml,
-      content_text: candidate.contentMarkdown || candidate.contentText,
+      content_text: cleanTextForReading(candidate.contentMarkdown || candidate.contentText),
       published_at: candidate.publishedAt,
       fetched_at: fetchedAt
     };
@@ -93,7 +94,7 @@ function toSnapshotRows(feedId: string, candidates: WebCandidate[]) {
     feed_id: feedId,
     candidate_key: candidate.key,
     content_hash: candidateContentHash(candidate),
-    semantic_summary: candidate.contentText.slice(0, 1000),
+    semantic_summary: cleanTextForReading(candidate.contentText).slice(0, 1000),
     llm_decision: "new",
     created_at: nowIso()
   }));
