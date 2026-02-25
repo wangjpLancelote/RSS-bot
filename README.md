@@ -625,10 +625,21 @@ npm run smoke
 - 在本地机器执行可获得完整结果。
 
 ## 部署与运维入口
-- 前端：Cloudflare Workers（OpenNext + Wrangler）
-- 后端：Railway Service（Dockerfile，Root=`server/`，配置文件：`server/railway.toml`）
-- 数据库：Supabase
-- 详细步骤：`docs/deploy.md`
+### 前端部署（Cloudflare Wrangler）
+- 使用 OpenNext + Wrangler 发布前端 Worker
+- 核心命令：`npm run build:cf`、`npm run preview:cf`、`npm run deploy:cf`
+- 配置文件：`wrangler.toml`
+
+### 后端部署（Railway）
+- 使用 Railway Web Service + Dockerfile 部署后端 API
+- Root Directory：`server/`
+- 部署入口配置：根目录 `railway.json`（Config File Path 设为 `/railway.json`）
+- Dockerfile：`server/Dockerfile`
+
+### 数据库
+- Supabase
+
+详细步骤：`docs/deploy.md`
 
 ## 常见问题与排障
 ### 1) 上游网络失败

@@ -65,19 +65,18 @@ env 读取规则：
 - `WRANGLER_ENV_INCLUDE=KEY1,KEY2`
 - `WRANGLER_ENV_EXCLUDE=KEY3`
 
-## 后端（Railway + Dockerfile）
+## 后端部署（Railway）
 
 ### 服务配置
 - Railway Service（Deploy from GitHub Repo）
 - Root Directory：`server/`
-- Config as Code：使用仓库中的 `server/railway.toml`
-  - `builder = "DOCKERFILE"`
-  - `dockerfilePath = "Dockerfile"`
-  - `healthcheckPath = "/health"`
+- Config File Path：`/railway.json`（根目录配置入口）
 
 ### 构建与启动
-- 使用 `server/Dockerfile` 构建镜像，不需要额外填写 Build/Start Command。
-- 容器会执行 `CMD ["npm", "start"]`，实际监听端口由 `PORT` 环境变量控制。
+- 使用 `server/Dockerfile` 构建镜像（由 `railway.json` 的 `build.builder=DOCKERFILE` 驱动）。
+- `railway.json` 中的 `dockerfilePath` 使用 `Dockerfile`，依赖 Root Directory=`server/`。
+- 容器执行 `CMD ["npm", "start"]`，实际监听端口由 `PORT` 环境变量控制。
+- 健康检查路径使用 `/health`（由 `railway.json` 的 `deploy.healthcheckPath` 配置）。
 
 ### 需要的环境变量
 - `SUPABASE_URL`
@@ -88,7 +87,7 @@ env 读取规则：
 
 说明：
 - Railway 会自动注入 `PORT`，通常不需要手动设置。
-- 服务健康检查路径建议为 `/health`（已在 `server/railway.toml` 中配置）。
+- 服务重启策略与健康检查统一由根目录 `railway.json` 管理。
 
 ## 数据库（Supabase）
 
