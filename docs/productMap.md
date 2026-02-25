@@ -94,33 +94,33 @@ flowchart LR
 ## File Index (Step -> File)
 
 1. 前端新增订阅入口  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/app/(main)/feeds/new/page.tsx`
+   `app/(main)/feeds/new/page.tsx`
 2. 前端提交与任务轮询（detecting/converting/validating/creating）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/components/FeedForm.tsx`
+   `components/FeedForm.tsx`
 3. 路由入口与鉴权挂载  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/routes/index.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/middleware/auth.ts`
+   `server/src/routes/index.ts`  
+   `server/src/middleware/auth.ts`
 4. Intake API（创建任务、查询任务）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/routes/feeds-intake.ts`
+   `server/src/routes/feeds-intake.ts`
 5. Intake 任务执行主链（RSS 发现 -> 回退网页转换 -> 创建 feed）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/services/feedIntake.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/services/discovery.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/services/langgraphPipeline.ts`
+   `server/src/services/feedIntake.ts`  
+   `server/src/services/discovery.ts`  
+   `server/src/services/langgraphPipeline.ts`
 6. 刷新链路（单 feed / 批量 / cron）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/routes/feeds.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/routes/refresh.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/routes/cron.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/services/rss.ts`
+   `server/src/routes/feeds.ts`  
+   `server/src/routes/refresh.ts`  
+   `server/src/routes/cron.ts`  
+   `server/src/services/rss.ts`
 7. 正文提纯（评论/点赞/登录等噪音剥离）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/server/src/services/contentCleaner.ts`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/app/(main)/feeds/[id]/page.tsx`
+   `server/src/services/contentCleaner.ts`  
+   `app/(main)/feeds/[id]/page.tsx`
 8. 前端展示（列表、详情、手动刷新）  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/app/(main)/page.tsx`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/components/FeedList.tsx`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/components/FeedDetailActions.tsx`  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/app/(main)/feeds/[id]/page.tsx`
+   `app/(main)/page.tsx`  
+   `components/FeedList.tsx`  
+   `components/FeedDetailActions.tsx`  
+   `app/(main)/feeds/[id]/page.tsx`
 9. Supabase 数据结构定义  
-   `/Users/lorenzo.wang/LifeByte/RSS-bot/supabase/schema.sql`
+   `supabase/schema.sql`
 
 ## Supabase 落库点速查
 
