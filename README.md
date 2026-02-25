@@ -626,7 +626,7 @@ npm run smoke
 
 ## 部署与运维入口
 - 前端：Cloudflare Workers（OpenNext + Wrangler）
-- 后端：Render Web Service（Root=`server/`）
+- 后端：Railway Service（Dockerfile，Root=`server/`，配置文件：`server/railway.toml`）
 - 数据库：Supabase
 - 详细步骤：`docs/deploy.md`
 

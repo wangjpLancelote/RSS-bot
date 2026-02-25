@@ -24,7 +24,7 @@ flowchart TD
   F --> G["OpenNext Build"]
   G --> H["wrangler dev/deploy --env-file .env.wrangler"]
   H --> I["Cloudflare Worker"]
-  I --> J["Render API"]
+  I --> J["Railway API"]
   I --> K["Supabase"]
 ```
 
@@ -59,23 +59,25 @@ env 读取规则：
 在 `.env` 与 `.env.production` 中至少需要：
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_API_BASE_URL`（指向 Render 后端 URL）
+- `NEXT_PUBLIC_API_BASE_URL`（指向 Railway 后端 URL）
 
 如需额外注入非 `NEXT_PUBLIC_*` 变量，可在执行前设置：
 - `WRANGLER_ENV_INCLUDE=KEY1,KEY2`
 - `WRANGLER_ENV_EXCLUDE=KEY3`
 
-## 后端（Render）
+## 后端（Railway + Dockerfile）
 
-### 服务类型
-- Web Service
+### 服务配置
+- Railway Service（Deploy from GitHub Repo）
 - Root Directory：`server/`
+- Config as Code：使用仓库中的 `server/railway.toml`
+  - `builder = "DOCKERFILE"`
+  - `dockerfilePath = "Dockerfile"`
+  - `healthcheckPath = "/health"`
 
-### 构建/启动命令
-- Build Command：
-  - `npm install && npm run build`
-- Start Command：
-  - `npm run start`
+### 构建与启动
+- 使用 `server/Dockerfile` 构建镜像，不需要额外填写 Build/Start Command。
+- 容器会执行 `CMD ["npm", "start"]`，实际监听端口由 `PORT` 环境变量控制。
 
 ### 需要的环境变量
 - `SUPABASE_URL`
@@ -83,7 +85,10 @@ env 读取规则：
 - `SUPABASE_ANON_KEY`
 - `ALLOWED_ORIGIN`（Cloudflare Worker 前端域名）
 - `CRON_SECRET`（可选，用于 `/cron/refresh`）
-- `PORT=4000`
+
+说明：
+- Railway 会自动注入 `PORT`，通常不需要手动设置。
+- 服务健康检查路径建议为 `/health`（已在 `server/railway.toml` 中配置）。
 
 ## 数据库（Supabase）
 
@@ -95,4 +100,4 @@ env 读取规则：
 
 ## CORS / 域名联动
 - `ALLOWED_ORIGIN` 设置为你的 Cloudflare Worker 前端域名
-- `NEXT_PUBLIC_API_BASE_URL` 设置为 Render 后端 URL
+- `NEXT_PUBLIC_API_BASE_URL` 设置为 Railway 后端 URL

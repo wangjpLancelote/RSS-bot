@@ -25,7 +25,22 @@ npm run start:server
 - 默认每 30 分钟触发一次，可在 workflow 中调整
 
 ## 部署
-参考 `docs/deploy.md`
+### Railway（推荐）
+1. 在 Railway 中连接仓库后，创建服务并将 Root Directory 设为 `server/`
+2. 启用 Config as Code（使用仓库中的 `server/railway.toml`）
+3. 配置环境变量：
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_ANON_KEY`
+   - `ALLOWED_ORIGIN`
+   - `CRON_SECRET`（可选）
+4. 部署后访问 `GET /health` 验证健康状态
+
+说明：
+- `server/Dockerfile` 使用 `npm run build` + `npm start` 启动服务。
+- Railway 会自动注入 `PORT`，本地未设置时默认回退到 `4000`。
+
+详细步骤参考 `docs/deploy.md`。
 
 ## 端口与跨域
 - 默认端口：`4000`
